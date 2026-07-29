@@ -33,7 +33,7 @@ export default function RegisterPage() {
 
   return (
     <div className="container py-12 flex items-center justify-center">
-      <Card className="w-full max-w-md">
+      <Card className="w-full max-w-md rounded-2xl border-neutral-100 shadow-sm bg-white">
         <CardHeader>
           <CardTitle>免费注册</CardTitle>
           <CardDescription>1 个项目 + 每日 500 字 AI 续写，永久免费</CardDescription>
@@ -42,18 +42,18 @@ export default function RegisterPage() {
           <form onSubmit={onSubmit} className="space-y-3">
             <div className="space-y-1">
               <Label htmlFor="name">昵称</Label>
-              <Input id="name" name="name" required maxLength={32} placeholder="你的笔名" />
+              <Input id="name" name="name" required maxLength={32} placeholder="你的笔名" className="rounded-xl" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="email">邮箱</Label>
-              <Input id="email" name="email" type="email" required placeholder="you@example.com" />
+              <Input id="email" name="email" type="email" required placeholder="you@example.com" className="rounded-xl" />
             </div>
             <div className="space-y-1">
               <Label htmlFor="password">密码</Label>
-              <Input id="password" name="password" type="password" required minLength={6} placeholder="至少 6 位" />
+              <Input id="password" name="password" type="password" required minLength={6} placeholder="至少 6 位" className="rounded-xl" />
             </div>
             {error && <p className="text-sm text-destructive">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <Button type="submit" className="w-full bg-neutral-900 text-white hover:bg-neutral-800" disabled={loading}>
               {loading ? "注册中..." : "注册并开始"}
             </Button>
           </form>

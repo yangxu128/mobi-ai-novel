@@ -105,10 +105,10 @@ export function PipelineFlow({ project, worldSummary, characterSummary }: Props)
               <div
                 className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
                   step > s.key
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-neutral-900 text-white"
                     : step === s.key
-                    ? "bg-primary text-primary-foreground ring-4 ring-primary/20"
-                    : "bg-muted text-muted-foreground group-hover:bg-accent"
+                    ? "bg-neutral-900 text-white ring-4 ring-neutral-200"
+                    : "bg-neutral-100 text-muted-foreground group-hover:bg-neutral-200"
                 }`}
               >
                 {step > s.key ? <Check className="h-3.5 w-3.5" /> : s.key}
@@ -122,8 +122,8 @@ export function PipelineFlow({ project, worldSummary, characterSummary }: Props)
             </button>
             {i < STEPS.length - 1 && (
               <div
-                className={`flex-1 h-px mx-2 ${step > s.key ? "bg-primary" : "bg-border"}`}
-              />
+                  className={`flex-1 h-px mx-2 ${step > s.key ? "bg-neutral-900" : "bg-neutral-200"}`}
+                />
             )}
           </div>
         ))}
@@ -169,11 +169,12 @@ export function PipelineFlow({ project, worldSummary, characterSummary }: Props)
       </div>
 
       {/* 底部步骤导航 */}
-      <div className="flex items-center justify-between border-t pt-3 shrink-0">
+      <div className="flex items-center justify-between border-t border-neutral-100 pt-3 shrink-0">
         <Button
           variant="outline"
           disabled={step === 1}
           onClick={() => gotoStep(step - 1)}
+          className="border-neutral-200 hover:bg-neutral-50"
         >
           上一步
         </Button>
@@ -181,9 +182,11 @@ export function PipelineFlow({ project, worldSummary, characterSummary }: Props)
           第 {step} / 6 步
         </span>
         {step < 6 ? (
-          <Button onClick={() => gotoStep(step + 1)}>跳到下一步</Button>
+          <Button onClick={() => gotoStep(step + 1)} className="bg-neutral-900 text-white hover:bg-neutral-800">
+            跳到下一步
+          </Button>
         ) : (
-          <Button asChild variant="outline">
+          <Button asChild variant="outline" className="border-neutral-200 hover:bg-neutral-50">
             <Link href={`/editor/${project.id}`}>前往工作台继续编辑</Link>
           </Button>
         )}

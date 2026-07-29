@@ -170,7 +170,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
         </p>
       </div>
 
-      <Card>
+      <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
         <CardHeader>
           <CardTitle className="text-base">生成参数</CardTitle>
           <CardDescription>选择大纲模板，AI 将参考世界观与角色生成</CardDescription>
@@ -192,12 +192,12 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={onGenerate} disabled={isStreaming}>
+            <Button onClick={onGenerate} disabled={isStreaming} className="bg-neutral-900 text-white hover:bg-neutral-800">
               {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {isStreaming ? "生成中..." : "AI 生成大纲"}
             </Button>
             {isStreaming && (
-              <Button variant="outline" onClick={stop}>
+              <Button variant="outline" onClick={stop} className="border-neutral-200 hover:bg-neutral-50">
                 停止
               </Button>
             )}
@@ -206,13 +206,13 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
       </Card>
 
       {error && (
-        <Card className="border-destructive">
+        <Card className="rounded-2xl border-destructive">
           <CardContent className="py-4 text-sm text-destructive">{error}</CardContent>
         </Card>
       )}
 
       {text && !parsed && (
-        <Card>
+        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
           <CardContent className="py-4">
             <pre className="text-xs whitespace-pre-wrap font-mono text-muted-foreground stream-cursor">
               {text}
@@ -225,7 +225,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
         <div className="space-y-3">
           <p className="text-sm text-muted-foreground">编辑大纲（含序号），确认后写入知识库并创建空章节</p>
           {items.map((it, idx) => (
-            <Card key={idx}>
+            <Card key={idx} className="rounded-2xl border-neutral-100 shadow-sm bg-white">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2 text-xs text-muted-foreground">
                   <span>第 {idx + 1} 条</span>
@@ -251,7 +251,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
                       min={1}
                       value={it.volume}
                       onChange={(e) => updateItem(idx, { volume: Math.max(1, Number(e.target.value) || 1) })}
-                      className="h-8 text-sm"
+                      className="h-8 text-sm rounded-xl"
                     />
                   </div>
                   <div className="space-y-1">
@@ -261,7 +261,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
                       min={1}
                       value={it.chapter}
                       onChange={(e) => updateItem(idx, { chapter: Math.max(1, Number(e.target.value) || 1) })}
-                      className="h-8 text-sm"
+                      className="h-8 text-sm rounded-xl"
                     />
                   </div>
                 </div>
@@ -270,7 +270,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
                   <Input
                     value={it.sceneTitle}
                     onChange={(e) => updateItem(idx, { sceneTitle: e.target.value })}
-                    className="h-8 text-sm"
+                    className="h-8 text-sm rounded-xl"
                   />
                 </div>
                 <div className="space-y-1">
@@ -279,7 +279,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
                     value={it.sceneSummary}
                     onChange={(e) => updateItem(idx, { sceneSummary: e.target.value })}
                     rows={2}
-                    className="text-sm"
+                    className="text-sm rounded-xl"
                   />
                 </div>
                 <div className="grid md:grid-cols-2 gap-3">
@@ -307,7 +307,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
                     <Input
                       value={it.foreshadowing || ""}
                       onChange={(e) => updateItem(idx, { foreshadowing: e.target.value })}
-                      className="h-8 text-sm"
+                      className="h-8 text-sm rounded-xl"
                     />
                   </div>
                 </div>
@@ -321,14 +321,14 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
                       })
                     }
                     rows={Math.max(2, it.plotPoints.length)}
-                    className="text-sm"
+                    className="text-sm rounded-xl"
                   />
                 </div>
               </CardContent>
             </Card>
           ))}
           <div className="flex justify-end">
-            <Button onClick={onSave}>
+            <Button onClick={onSave} className="bg-neutral-900 text-white hover:bg-neutral-800">
               <Save className="h-4 w-4" />
               保存大纲并创建空章节
             </Button>

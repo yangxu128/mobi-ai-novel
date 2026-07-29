@@ -136,7 +136,7 @@ export function Step6Polish({
 
       <div className="grid lg:grid-cols-[260px_1fr_320px] gap-4">
         {/* 章节列表 */}
-        <Card className="h-fit">
+        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">章节列表</CardTitle>
           </CardHeader>
@@ -150,7 +150,7 @@ export function Step6Polish({
                     key={c.id}
                     onClick={() => setActiveId(c.id)}
                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                      activeId === c.id ? "bg-primary/10 text-foreground" : "hover:bg-accent"
+                      activeId === c.id ? "bg-neutral-100 text-foreground" : "hover:bg-neutral-50"
                     }`}
                   >
                     <div className="truncate flex items-center gap-1">
@@ -168,7 +168,7 @@ export function Step6Polish({
         </Card>
 
         {/* 编辑区 */}
-        <Card>
+        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">{activeChapter?.title || "请选择章节"}</CardTitle>
           </CardHeader>
@@ -186,7 +186,7 @@ export function Step6Polish({
                   ))}
                 </SelectContent>
               </Select>
-              <Button onClick={onPolishFull} disabled={polishStream.isStreaming || !activeChapter} size="sm">
+              <Button onClick={onPolishFull} disabled={polishStream.isStreaming || !activeChapter} size="sm" className="bg-neutral-900 text-white hover:bg-neutral-800">
                 {polishStream.isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 润色全文
               </Button>
@@ -195,6 +195,7 @@ export function Step6Polish({
                 disabled={inlineStream.isStreaming || !activeChapter}
                 size="sm"
                 variant="outline"
+                className="border-neutral-200 hover:bg-neutral-50"
               >
                 {inlineStream.isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 润色选段
@@ -207,6 +208,7 @@ export function Step6Polish({
                     polishStream.stop();
                     inlineStream.stop();
                   }}
+                  className="border-neutral-200 hover:bg-neutral-50"
                 >
                   停止
                 </Button>
@@ -238,7 +240,7 @@ export function Step6Polish({
               onKeyUp={onSelectText}
               placeholder="润色结果将显示在此"
               rows={20}
-              className="font-serif text-base leading-relaxed"
+              className="font-serif text-base leading-relaxed rounded-xl"
             />
 
             {selectedText && (
@@ -252,11 +254,11 @@ export function Step6Polish({
                 {formatWordCount(activeDraft.replace(/\s/g, "").length)}
               </span>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={onSave} disabled={!activeChapter}>
+                <Button variant="outline" onClick={onSave} disabled={!activeChapter} className="border-neutral-200 hover:bg-neutral-50">
                   <Save className="h-4 w-4" />
                   保存
                 </Button>
-                <Button onClick={onMarkFinal} disabled={!activeChapter}>
+                <Button onClick={onMarkFinal} disabled={!activeChapter} className="bg-neutral-900 text-white hover:bg-neutral-800">
                   <Check className="h-4 w-4" />
                   标记定稿
                 </Button>
@@ -266,7 +268,7 @@ export function Step6Polish({
         </Card>
 
         {/* 一致性检查 */}
-        <Card className="h-fit">
+        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <Shield className="h-4 w-4" />
@@ -281,7 +283,7 @@ export function Step6Polish({
               onClick={onConsistencyCheck}
               disabled={checkStream.isStreaming || !activeChapter}
               size="sm"
-              className="w-full"
+              className="w-full bg-neutral-900 text-white hover:bg-neutral-800"
             >
               {checkStream.isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
               {checkStream.isStreaming ? "检查中..." : "开始检查"}

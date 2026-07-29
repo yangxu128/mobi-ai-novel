@@ -57,19 +57,21 @@ export default async function AdminProjectsPage({
         <AdminSidebar active="projects" />
 
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold mb-1">项目管理</h1>
-          <p className="text-sm text-muted-foreground mb-6">共 {total} 个项目</p>
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h1 className="text-2xl font-bold mb-1">项目管理</h1>
+            <p className="text-sm text-muted-foreground mb-6">共 {total} 个项目</p>
 
-          <AdminProjectsClient
-            projects={projects.map((p) => ({
-              ...p,
-              createdAt: p.createdAt.toISOString(),
-              updatedAt: p.updatedAt.toISOString(),
-            }))}
-            page={page}
-            totalPages={totalPages}
-            search={search}
-          />
+            <AdminProjectsClient
+              projects={projects.map((p) => ({
+                ...p,
+                createdAt: p.createdAt.toISOString(),
+                updatedAt: p.updatedAt.toISOString(),
+              }))}
+              page={page}
+              totalPages={totalPages}
+              search={search}
+            />
+          </div>
         </div>
       </div>
     </div>

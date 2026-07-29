@@ -85,7 +85,7 @@ export function Step5Expand({
 
       <div className="grid lg:grid-cols-[260px_1fr] gap-4">
         {/* 章节列表 */}
-        <Card className="h-fit">
+        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">章节列表</CardTitle>
           </CardHeader>
@@ -99,7 +99,7 @@ export function Step5Expand({
                     key={c.id}
                     onClick={() => setActiveId(c.id)}
                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                      activeId === c.id ? "bg-primary/10 text-foreground" : "hover:bg-accent"
+                      activeId === c.id ? "bg-neutral-100 text-foreground" : "hover:bg-neutral-50"
                     }`}
                   >
                     <div className="truncate">{c.title}</div>
@@ -114,7 +114,7 @@ export function Step5Expand({
         </Card>
 
         {/* 编辑区 */}
-        <Card>
+        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
           <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <div>
@@ -130,12 +130,13 @@ export function Step5Expand({
                   onClick={onGenerate}
                   disabled={isStreaming || !activeChapter}
                   size="sm"
+                  className="bg-neutral-900 text-white hover:bg-neutral-800"
                 >
                   {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                   {isStreaming ? "生成中" : "AI 扩写"}
                 </Button>
                 {isStreaming && (
-                  <Button variant="outline" size="sm" onClick={stop}>
+                  <Button variant="outline" size="sm" onClick={stop} className="border-neutral-200 hover:bg-neutral-50">
                     停止
                   </Button>
                 )}
@@ -165,7 +166,7 @@ export function Step5Expand({
               onChange={(e) => activeId && setDraft((d) => ({ ...d, [activeId]: e.target.value }))}
               placeholder="点击 AI 扩写生成正文，或手动输入"
               rows={20}
-              className="font-serif text-base leading-relaxed"
+              className="font-serif text-base leading-relaxed rounded-xl"
             />
 
             <div className="flex items-center justify-between mt-3">
@@ -173,11 +174,11 @@ export function Step5Expand({
                 {formatWordCount(activeDraft.replace(/\s/g, "").length)}
               </span>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={onSave} disabled={!activeChapter}>
+                <Button variant="outline" onClick={onSave} disabled={!activeChapter} className="border-neutral-200 hover:bg-neutral-50">
                   <Save className="h-4 w-4" />
                   保存
                 </Button>
-                <Button onClick={onConfirmNext} disabled={!activeChapter}>
+                <Button onClick={onConfirmNext} disabled={!activeChapter} className="bg-neutral-900 text-white hover:bg-neutral-800">
                   确认并进入下一步
                 </Button>
               </div>

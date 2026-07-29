@@ -36,7 +36,7 @@ function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
+    <Card className="w-full max-w-md rounded-2xl border-neutral-100 shadow-sm bg-white">
       <CardHeader>
         <CardTitle>登录墨笔</CardTitle>
         <CardDescription>输入你的账号信息继续创作</CardDescription>
@@ -44,7 +44,7 @@ function LoginForm() {
       <CardContent className="space-y-4">
         <Button
           variant="outline"
-          className="w-full"
+          className="w-full border-neutral-200 hover:bg-neutral-50"
           onClick={() => signIn("github", { callbackUrl })}
           disabled={loading}
         >
@@ -53,8 +53,8 @@ function LoginForm() {
         </Button>
 
         <div className="relative">
-          <Separator />
-          <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground bg-background px-2 mx-auto w-fit">
+          <Separator className="bg-neutral-100" />
+          <span className="absolute inset-0 flex items-center justify-center text-xs text-muted-foreground bg-white px-2 mx-auto w-fit">
             或
           </span>
         </div>
@@ -69,6 +69,7 @@ function LoginForm() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
+              className="rounded-xl"
             />
           </div>
           <div className="space-y-1">
@@ -80,10 +81,11 @@ function LoginForm() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="至少 6 位"
+              className="rounded-xl"
             />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" className="w-full" disabled={loading}>
+          <Button type="submit" className="w-full bg-neutral-900 text-white hover:bg-neutral-800" disabled={loading}>
             {loading ? "登录中..." : "登录"}
           </Button>
         </form>
@@ -102,7 +104,7 @@ function LoginForm() {
 export default function LoginPage() {
   return (
     <div className="container py-12 flex items-center justify-center">
-      <Suspense fallback={<div className="w-full max-w-md h-96 animate-pulse bg-muted rounded-lg" />}>
+      <Suspense fallback={<div className="w-full max-w-md h-96 animate-pulse bg-neutral-100 rounded-2xl" />}>
         <LoginForm />
       </Suspense>
     </div>

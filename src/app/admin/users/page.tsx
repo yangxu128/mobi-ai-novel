@@ -55,18 +55,20 @@ export default async function AdminUsersPage({
         <AdminSidebar active="users" />
 
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold mb-1">用户管理</h1>
-          <p className="text-sm text-muted-foreground mb-6">共 {total} 个用户</p>
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h1 className="text-2xl font-bold mb-1">用户管理</h1>
+            <p className="text-sm text-muted-foreground mb-6">共 {total} 个用户</p>
 
-          <AdminUsersClient
-            users={users.map((u) => ({
-              ...u,
-              createdAt: u.createdAt.toISOString(),
-            }))}
-            page={page}
-            totalPages={totalPages}
-            search={search}
-          />
+            <AdminUsersClient
+              users={users.map((u) => ({
+                ...u,
+                createdAt: u.createdAt.toISOString(),
+              }))}
+              page={page}
+              totalPages={totalPages}
+              search={search}
+            />
+          </div>
         </div>
       </div>
     </div>

@@ -64,14 +64,16 @@ export default async function AdminDashboardPage() {
         <AdminSidebar active="dashboard" />
 
         <div className="flex-1 min-w-0">
-          <h1 className="text-2xl font-bold mb-1">管理后台</h1>
-          <p className="text-sm text-muted-foreground mb-6">平台运营数据总览</p>
+          <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+            <h1 className="text-2xl font-bold mb-1">管理后台</h1>
+            <p className="text-sm text-muted-foreground">平台运营数据总览</p>
+          </div>
 
           {/* 统计卡片 */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
             {cards.map((c) => (
               <Link key={c.label} href={c.href}>
-                <Card className="hover:border-primary/50 transition-colors">
+                <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white hover:border-neutral-300 transition-colors">
                   <CardHeader className="flex flex-row items-center justify-between pb-2">
                     <CardTitle className="text-sm font-medium text-muted-foreground">
                       {c.label}
@@ -87,7 +89,7 @@ export default async function AdminDashboardPage() {
           </div>
 
           {/* 7 天 AI Token 趋势 */}
-          <Card>
+          <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
             <CardHeader>
               <CardTitle className="text-base">近 7 天 AI Token 消耗</CardTitle>
             </CardHeader>

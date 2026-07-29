@@ -105,7 +105,7 @@ export function AdminUsersClient({
             className="pl-9"
           />
         </div>
-        <Button type="submit" variant="outline" size="sm">搜索</Button>
+        <Button type="submit" variant="outline" size="sm" className="border-neutral-200 hover:bg-neutral-50">搜索</Button>
       </form>
 
       {/* 表格 */}
@@ -219,6 +219,7 @@ export function AdminUsersClient({
               params.set("page", String(page - 1));
               router.push(`/admin/users?${params.toString()}`);
             }}
+            className="border-neutral-200 hover:bg-neutral-50"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
@@ -235,6 +236,7 @@ export function AdminUsersClient({
               params.set("page", String(page + 1));
               router.push(`/admin/users?${params.toString()}`);
             }}
+            className="border-neutral-200 hover:bg-neutral-50"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

@@ -98,7 +98,7 @@ export function AdminProjectsClient({
             className="pl-9"
           />
         </div>
-        <Button type="submit" variant="outline" size="sm">搜索</Button>
+        <Button type="submit" variant="outline" size="sm" className="border-neutral-200 hover:bg-neutral-50">搜索</Button>
       </form>
 
       <div className="border rounded-lg overflow-hidden">
@@ -186,13 +186,13 @@ export function AdminProjectsClient({
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goPage(page - 1)}>
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goPage(page - 1)} className="border-neutral-200 hover:bg-neutral-50">
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="text-sm text-muted-foreground">
             {page} / {totalPages}
           </span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => goPage(page + 1)}>
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => goPage(page + 1)} className="border-neutral-200 hover:bg-neutral-50">
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

@@ -121,22 +121,22 @@ export function ProjectsClient({
 
   return (
     <div className="container py-8">
-      <div className="flex items-center justify-between mb-6">
+      <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="text-2xl font-bold">我的项目</h1>
           <p className="text-sm text-muted-foreground mt-1">在所有模式间切换，数据自动同步</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)}>
+        <Button onClick={() => setCreateOpen(true)} className="bg-neutral-900 text-white hover:bg-neutral-800 shrink-0">
           <Plus className="h-4 w-4" />
           新建项目
         </Button>
       </div>
 
       {projects.length === 0 ? (
-        <Card>
+        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
           <CardContent className="py-16 text-center">
             <p className="text-muted-foreground mb-4">还没有项目，点击右上角&ldquo;新建项目&rdquo;开始创作</p>
-            <Button onClick={() => setCreateOpen(true)}>
+            <Button onClick={() => setCreateOpen(true)} className="bg-neutral-900 text-white hover:bg-neutral-800">
               <Plus className="h-4 w-4" />
               创建第一个项目
             </Button>
@@ -148,7 +148,7 @@ export function ProjectsClient({
             const mi = modeInfo[p.mode as keyof typeof modeInfo];
             const Icon = mi.icon;
             return (
-              <Card key={p.id} className="hover:shadow-md transition-shadow group">
+              <Card key={p.id} className="rounded-2xl border-neutral-100 shadow-sm hover:shadow-md transition-shadow group bg-white">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <Link
@@ -157,8 +157,8 @@ export function ProjectsClient({
                       className="flex-1 min-w-0"
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <div className="h-7 w-7 rounded bg-primary/10 flex items-center justify-center shrink-0">
-                          <Icon className="h-3.5 w-3.5" />
+                        <div className="h-7 w-7 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0">
+                          <Icon className="h-3.5 w-3.5 text-neutral-700" />
                         </div>
                         <CardTitle className="text-base truncate">{p.title}</CardTitle>
                       </div>
@@ -209,7 +209,7 @@ export function ProjectsClient({
 
       {/* 新建项目对话框 */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg rounded-2xl">
           <DialogHeader>
             <DialogTitle>新建项目</DialogTitle>
             <DialogDescription>选择适合你的创作模式，后续可随时切换</DialogDescription>
@@ -225,10 +225,10 @@ export function ProjectsClient({
                       key={m}
                       type="button"
                       onClick={() => setMode(m)}
-                      className={`flex flex-col items-center gap-1 p-3 rounded-md border text-xs transition-colors ${
+                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs transition-colors ${
                         mode === m
-                          ? "border-primary bg-primary/5"
-                          : "border-input hover:bg-accent"
+                          ? "border-neutral-900 bg-neutral-50 text-neutral-900"
+                          : "border-neutral-200 hover:bg-neutral-50"
                       }`}
                     >
                       <Icon className="h-4 w-4" />
@@ -281,10 +281,10 @@ export function ProjectsClient({
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} className="border-neutral-200 hover:bg-neutral-50">
                 取消
               </Button>
-              <Button type="submit" disabled={creating}>
+              <Button type="submit" disabled={creating} className="bg-neutral-900 text-white hover:bg-neutral-800">
                 {creating ? "创建中..." : "创建"}
               </Button>
             </DialogFooter>

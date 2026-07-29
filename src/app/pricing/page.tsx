@@ -74,11 +74,16 @@ export default function PricingPage() {
 
       <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
         {plans.map((plan) => (
-          <Card key={plan.name} className={plan.highlight ? "border-primary shadow-lg" : ""}>
+          <Card
+            key={plan.name}
+            className={`rounded-2xl shadow-sm bg-white ${
+              plan.highlight ? "border-neutral-900 shadow-md" : "border-neutral-100"
+            }`}
+          >
             <CardHeader>
               <div className="flex items-center gap-2">
                 <CardTitle>{plan.cn}</CardTitle>
-                {plan.highlight && <Badge>推荐</Badge>}
+                {plan.highlight && <Badge className="bg-neutral-900 text-white hover:bg-neutral-800">推荐</Badge>}
               </div>
               <CardDescription>{plan.desc}</CardDescription>
               <div className="mt-4">
@@ -95,7 +100,15 @@ export default function PricingPage() {
                   </li>
                 ))}
               </ul>
-              <Button asChild className="w-full" variant={plan.highlight ? "default" : "outline"}>
+              <Button
+                asChild
+                className={`w-full ${
+                  plan.highlight
+                    ? "bg-neutral-900 text-white hover:bg-neutral-800"
+                    : "border-neutral-200 hover:bg-neutral-50"
+                }`}
+                variant={plan.highlight ? "default" : "outline"}
+              >
                 <Link href={plan.href}>{plan.cta}</Link>
               </Button>
             </CardContent>

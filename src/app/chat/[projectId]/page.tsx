@@ -28,7 +28,7 @@ export default async function ChatPage({
 
   return (
     <div className="flex flex-col h-full">
-      <div className="border-b bg-background shrink-0">
+      <div className="border-b border-neutral-100 bg-white shrink-0">
         <div className="container py-2 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Link href="/projects" className="text-xs text-muted-foreground hover:text-foreground">

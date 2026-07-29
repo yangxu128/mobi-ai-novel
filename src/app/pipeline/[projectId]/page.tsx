@@ -61,7 +61,7 @@ export default async function PipelinePage({
   return (
     <div className="h-full flex flex-col">
       <div className="container py-4 shrink-0">
-        <div className="flex items-center justify-between mb-2">
+        <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1">
               <Link href="/projects" className="hover:text-foreground">
@@ -80,11 +80,13 @@ export default async function PipelinePage({
       </div>
 
       <div className="flex-1 min-h-0 container pb-4 flex flex-col">
-        <PipelineFlow
-          project={JSON.parse(JSON.stringify(project))}
-          worldSummary={worldSummary}
-          characterSummary={characterSummary}
-        />
+        <div className="bg-white rounded-2xl shadow-sm border border-neutral-100 p-6 flex flex-col h-full">
+          <PipelineFlow
+            project={JSON.parse(JSON.stringify(project))}
+            worldSummary={worldSummary}
+            characterSummary={characterSummary}
+          />
+        </div>
       </div>
     </div>
   );

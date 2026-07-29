@@ -178,7 +178,7 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
         </p>
       </div>
 
-      <Card>
+      <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
         <CardHeader>
           <CardTitle className="text-base">世界观摘要</CardTitle>
           <CardDescription>AI 将参考以下世界观生成角色</CardDescription>
@@ -187,12 +187,12 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
           <p className="text-sm text-muted-foreground whitespace-pre-line line-clamp-4">
             {worldSummary || "(未填写世界观)"}
           </p>
-          <Button onClick={onGenerate} disabled={isStreaming} className="mt-4">
+          <Button onClick={onGenerate} disabled={isStreaming} className="mt-4 bg-neutral-900 text-white hover:bg-neutral-800">
             {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {isStreaming ? "生成中..." : "AI 生成角色"}
           </Button>
           {isStreaming && (
-            <Button variant="outline" onClick={stop} className="mt-4 ml-2">
+            <Button variant="outline" onClick={stop} className="mt-4 ml-2 border-neutral-200 hover:bg-neutral-50">
               停止
             </Button>
           )}
@@ -200,13 +200,13 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
       </Card>
 
       {error && (
-        <Card className="border-destructive">
+        <Card className="rounded-2xl border-destructive">
           <CardContent className="py-4 text-sm text-destructive">{error}</CardContent>
         </Card>
       )}
 
       {text && !parsed && (
-        <Card>
+        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
           <CardContent className="py-4">
             <pre className="text-xs whitespace-pre-wrap font-mono text-muted-foreground stream-cursor">
               {text}
@@ -219,13 +219,13 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm text-muted-foreground">编辑角色卡，确认后写入知识库</p>
-            <Button variant="outline" size="sm" onClick={addItem}>
+            <Button variant="outline" size="sm" onClick={addItem} className="border-neutral-200 hover:bg-neutral-50">
               <Plus className="h-3.5 w-3.5" />
               新增
             </Button>
           </div>
           {items.map((it, idx) => (
-            <Card key={idx}>
+            <Card key={idx} className="rounded-2xl border-neutral-100 shadow-sm bg-white">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <select
@@ -242,7 +242,7 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
                   <Input
                     value={it.name}
                     onChange={(e) => updateItem(idx, { name: e.target.value })}
-                    className="h-8 text-sm font-medium"
+                    className="h-8 text-sm font-medium rounded-xl"
                   />
                   <Button variant="ghost" size="icon" onClick={() => removeItem(idx)} className="h-8 w-8 shrink-0">
                     <Trash2 className="h-3.5 w-3.5" />
@@ -256,7 +256,7 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
                     value={it.appearance || ""}
                     onChange={(e) => updateItem(idx, { appearance: e.target.value })}
                     rows={2}
-                    className="text-sm"
+                    className="text-sm rounded-xl"
                   />
                 </div>
                 <div className="space-y-1">
@@ -265,7 +265,7 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
                     value={it.personality || ""}
                     onChange={(e) => updateItem(idx, { personality: e.target.value })}
                     rows={2}
-                    className="text-sm"
+                    className="text-sm rounded-xl"
                   />
                 </div>
                 <div className="space-y-1">
@@ -274,7 +274,7 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
                     value={it.background || ""}
                     onChange={(e) => updateItem(idx, { background: e.target.value })}
                     rows={3}
-                    className="text-sm"
+                    className="text-sm rounded-xl"
                   />
                 </div>
                 <div className="space-y-1">
@@ -283,7 +283,7 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
                     value={it.motivation || ""}
                     onChange={(e) => updateItem(idx, { motivation: e.target.value })}
                     rows={3}
-                    className="text-sm"
+                    className="text-sm rounded-xl"
                   />
                 </div>
                 <div className="space-y-1 md:col-span-2">
@@ -292,14 +292,14 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
                     value={it.arc || ""}
                     onChange={(e) => updateItem(idx, { arc: e.target.value })}
                     rows={2}
-                    className="text-sm"
+                    className="text-sm rounded-xl"
                   />
                 </div>
               </CardContent>
             </Card>
           ))}
           <div className="flex justify-end">
-            <Button onClick={onSave}>
+            <Button onClick={onSave} className="bg-neutral-900 text-white hover:bg-neutral-800">
               <Save className="h-4 w-4" />
               保存并进入下一步
             </Button>

@@ -20,7 +20,7 @@ export function AdminSidebar({ active }: { active: string }) {
             className={cn(
               "flex items-center gap-2 px-3 py-2 rounded-md text-sm transition-colors",
               active === it.key
-                ? "bg-primary/10 text-primary font-medium"
+                ? "bg-neutral-100 text-neutral-900 font-medium"
                 : "text-muted-foreground hover:text-foreground hover:bg-muted"
             )}
           >

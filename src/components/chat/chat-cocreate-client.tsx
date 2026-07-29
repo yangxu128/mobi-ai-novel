@@ -154,16 +154,16 @@ export function ChatCoCreateClient({ projectId }: { projectId: string }) {
     <div className="flex flex-1 min-h-0 -mx-4 lg:-mx-8">
       {/* 主聊天区 */}
       <div className="flex-1 flex flex-col px-4 lg:px-8">
-        <div className="border-b py-3 flex items-center justify-between">
+        <div className="border-b border-neutral-100 py-3 flex items-center justify-between">
           <div className="text-sm text-muted-foreground">
             共 {messages.filter((m) => m.role === "user").length} 轮对话
           </div>
           <div className="flex gap-2">
-            <Button variant="outline" size="sm" onClick={onExtract} disabled={extracting || messages.length < 2}>
+            <Button variant="outline" size="sm" onClick={onExtract} disabled={extracting || messages.length < 2} className="border-neutral-200 hover:bg-neutral-50">
               {extracting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Wand2 className="h-3.5 w-3.5" />}
               提取知识卡
             </Button>
-            <Button size="sm" onClick={onConvert}>
+            <Button size="sm" onClick={onConvert} className="bg-neutral-900 text-white hover:bg-neutral-800">
               <ArrowRight className="h-3.5 w-3.5" />
               转为正式项目
             </Button>
@@ -185,10 +185,10 @@ export function ChatCoCreateClient({ projectId }: { projectId: string }) {
                 className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}
               >
                 <div
-                  className={`max-w-[80%] rounded-lg px-4 py-2.5 text-sm ${
+                  className={`max-w-[80%] rounded-2xl px-4 py-2.5 text-sm ${
                     m.role === "user"
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-muted"
+                      ? "bg-neutral-900 text-white"
+                      : "bg-neutral-100 text-foreground"
                   }`}
                 >
                   <div className="whitespace-pre-wrap leading-relaxed">{m.content}</div>
@@ -197,7 +197,7 @@ export function ChatCoCreateClient({ projectId }: { projectId: string }) {
             ))}
             {aiStream.isStreaming && (
               <div className="flex justify-start">
-                <div className="max-w-[80%] rounded-lg px-4 py-2.5 text-sm bg-muted">
+                <div className="max-w-[80%] rounded-2xl px-4 py-2.5 text-sm bg-neutral-100 text-foreground">
                   <div className="whitespace-pre-wrap leading-relaxed stream-cursor">{aiStream.text}</div>
                 </div>
               </div>
@@ -205,7 +205,7 @@ export function ChatCoCreateClient({ projectId }: { projectId: string }) {
           </div>
         </ScrollArea>
 
-        <div className="border-t py-4 bg-background">
+        <div className="border-t border-neutral-100 py-4 bg-white">
           <div className="flex gap-2 items-end">
             <Textarea
               value={input}
@@ -218,10 +218,10 @@ export function ChatCoCreateClient({ projectId }: { projectId: string }) {
               }}
               placeholder="描述故事走向，AI 会接龙推进。Enter 发送，Shift+Enter 换行"
               rows={2}
-              className="flex-1 resize-none"
+              className="flex-1 resize-none rounded-xl border-neutral-200"
               disabled={aiStream.isStreaming}
             />
-            <Button onClick={onSend} disabled={!input.trim() || aiStream.isStreaming || sending}>
+            <Button onClick={onSend} disabled={!input.trim() || aiStream.isStreaming || sending} className="bg-neutral-900 text-white hover:bg-neutral-800 h-10 w-10 p-0">
               {aiStream.isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
             </Button>
           </div>
@@ -229,11 +229,11 @@ export function ChatCoCreateClient({ projectId }: { projectId: string }) {
       </div>
 
       {/* 右侧已提取卡片 */}
-      <aside className="w-80 border-l bg-background hidden lg:flex flex-col">
-        <div className="p-3 border-b flex items-center justify-between">
+      <aside className="w-80 border-l border-neutral-100 bg-white hidden lg:flex flex-col">
+        <div className="p-3 border-b border-neutral-100 flex items-center justify-between">
           <h3 className="text-sm font-semibold">已识别设定</h3>
           {cards.worldSettings?.length || cards.characters?.length ? (
-            <Button size="sm" variant="outline" onClick={onCommit}>
+            <Button size="sm" variant="outline" onClick={onCommit} className="border-neutral-200 hover:bg-neutral-50">
               <Check className="h-3 w-3" />
               回填
             </Button>
@@ -245,7 +245,7 @@ export function ChatCoCreateClient({ projectId }: { projectId: string }) {
               <div className="text-xs font-medium text-muted-foreground mb-2">世界观</div>
               {cards.worldSettings?.length ? (
                 cards.worldSettings.map((w, i) => (
-                  <Card key={i} className="mb-2">
+                  <Card key={i} className="mb-2 rounded-2xl border-neutral-100 shadow-sm bg-white">
                     <CardContent className="p-2 text-xs">
                       <div className="flex items-center gap-1 mb-1">
                         <Badge variant="secondary" className="text-[10px]">{w.category}</Badge>
@@ -263,7 +263,7 @@ export function ChatCoCreateClient({ projectId }: { projectId: string }) {
               <div className="text-xs font-medium text-muted-foreground mb-2">角色</div>
               {cards.characters?.length ? (
                 cards.characters.map((c, i) => (
-                  <Card key={i} className="mb-2">
+                  <Card key={i} className="mb-2 rounded-2xl border-neutral-100 shadow-sm bg-white">
                     <CardContent className="p-2 text-xs">
                       <div className="flex items-center gap-1 mb-1">
                         <Badge variant="secondary" className="text-[10px]">{c.role}</Badge>

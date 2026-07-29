@@ -97,11 +97,11 @@ export function WorkbenchClient({ project }: { project: Project }) {
   }
 
   return (
-    <div className="flex flex-1 min-h-0">
+    <div className="flex flex-1 min-h-0 bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
       {/* 左侧章节树 */}
       {!focusMode && (
-        <aside className="w-60 border-r bg-background flex flex-col">
-          <div className="p-3 border-b">
+        <aside className="w-60 border-r border-neutral-100 bg-white flex flex-col">
+          <div className="p-3 border-b border-neutral-100">
             <Link
               href="/projects"
               className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
@@ -111,10 +111,10 @@ export function WorkbenchClient({ project }: { project: Project }) {
             </Link>
             <h2 className="text-sm font-semibold mt-2 truncate">{project.title}</h2>
           </div>
-          <div className="p-2 border-b">
+          <div className="p-2 border-b border-neutral-100">
             <Button
               size="sm"
-              className="w-full"
+              className="w-full bg-neutral-900 text-white hover:bg-neutral-800"
               onClick={() => setCreating(true)}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -133,7 +133,7 @@ export function WorkbenchClient({ project }: { project: Project }) {
                     if (e.key === "Escape") setCreating(false);
                   }}
                 />
-                <Button size="sm" onClick={createChapter} className="h-8 px-2">添加</Button>
+                <Button size="sm" onClick={createChapter} className="h-8 px-2 bg-neutral-900 text-white hover:bg-neutral-800">添加</Button>
               </div>
             )}
           </div>
@@ -146,7 +146,7 @@ export function WorkbenchClient({ project }: { project: Project }) {
                   <div
                     key={c.id}
                     className={`group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm cursor-pointer ${
-                      activeId === c.id ? "bg-primary/10" : "hover:bg-accent"
+                      activeId === c.id ? "bg-neutral-100" : "hover:bg-neutral-50"
                     }`}
                     onClick={() => setActiveId(c.id)}
                   >
@@ -170,7 +170,7 @@ export function WorkbenchClient({ project }: { project: Project }) {
       )}
 
       {/* 中间编辑器 */}
-      <main className="flex-1 flex flex-col bg-muted/20">
+      <main className="flex-1 flex flex-col bg-white">
         {active ? (
           <TipTapEditor
             key={active.id}
@@ -197,7 +197,7 @@ export function WorkbenchClient({ project }: { project: Project }) {
             <TooltipTrigger asChild>
               <button
                 onClick={() => setFocusMode(!focusMode)}
-                className="fixed bottom-4 right-4 h-9 w-9 rounded-full bg-primary text-primary-foreground shadow-lg flex items-center justify-center hover:opacity-90 z-30"
+                className="fixed bottom-4 right-4 h-9 w-9 rounded-full bg-neutral-900 text-white shadow-lg flex items-center justify-center hover:bg-neutral-800 z-30"
               >
                 <Maximize2 className="h-4 w-4" />
               </button>
@@ -211,7 +211,7 @@ export function WorkbenchClient({ project }: { project: Project }) {
 
       {/* 右侧知识库 */}
       {!focusMode && (
-        <aside className="w-72 hidden lg:block">
+        <aside className="w-72 hidden lg:block border-l border-neutral-100 bg-white">
           <KnowledgeSidebar
             projectId={project.id}
             worldSettings={project.worldSettings}

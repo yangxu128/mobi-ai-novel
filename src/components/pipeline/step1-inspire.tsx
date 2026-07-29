@@ -114,7 +114,7 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
         </p>
       </div>
 
-      <Card>
+      <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
         <CardHeader>
           <CardTitle className="text-base">你的灵感</CardTitle>
           <CardDescription>一句话描述你想写的故事</CardDescription>
@@ -126,14 +126,15 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
             placeholder="例如：一个能听到死者遗言的殡葬师，被卷入一桩十年前的悬案"
             rows={2}
             disabled={isStreaming}
+            className="rounded-xl"
           />
           <div className="flex gap-2">
-            <Button onClick={onGenerate} disabled={isStreaming || !idea.trim()}>
+            <Button onClick={onGenerate} disabled={isStreaming || !idea.trim()} className="bg-neutral-900 text-white hover:bg-neutral-800">
               {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {isStreaming ? "生成中..." : "生成灵感卡"}
             </Button>
             {isStreaming && (
-              <Button variant="outline" onClick={stop}>
+              <Button variant="outline" onClick={stop} className="border-neutral-200 hover:bg-neutral-50">
                 停止
               </Button>
             )}
@@ -142,14 +143,14 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
       </Card>
 
       {error && (
-        <Card className="border-destructive">
+        <Card className="rounded-2xl border-destructive">
           <CardContent className="py-4 text-sm text-destructive">{error}</CardContent>
         </Card>
       )}
 
       {/* 原始文本：流式过程中或解析失败时显示 */}
       {showRaw && (
-        <Card>
+        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
           <CardContent className="py-4">
             <pre className="text-xs whitespace-pre-wrap font-mono text-muted-foreground stream-cursor">
               {text}
@@ -174,15 +175,15 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
             {parsed.map((c, i) => (
               <Card
                 key={i}
-                className={`cursor-pointer transition-all ${
-                  selected === i ? "border-primary ring-2 ring-primary/20" : "hover:border-foreground/20"
+                className={`cursor-pointer transition-all rounded-2xl border-neutral-100 shadow-sm bg-white ${
+                  selected === i ? "border-neutral-900 ring-2 ring-neutral-200" : "hover:border-neutral-300"
                 }`}
                 onClick={() => setSelected(i)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm">灵感 {i + 1}</CardTitle>
-                    {selected === i && <Check className="h-4 w-4 text-primary" />}
+                    {selected === i && <Check className="h-4 w-4 text-neutral-900" />}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2 text-xs">
@@ -220,6 +221,7 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
                   await updateProjectSynopsisSelected(projectId, summary);
                   window.dispatchEvent(new CustomEvent("pipeline-step-next"));
                 }}
+                className="bg-neutral-900 text-white hover:bg-neutral-800"
               >
                 确认并进入下一步
               </Button>
