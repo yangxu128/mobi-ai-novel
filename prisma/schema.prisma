@@ -1,0 +1,306 @@
+// AI 写小说平台 Prisma Schema
+// 适配 Supabase PostgreSQL
+
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["postgresqlExtensions"]
+}
+
+datasource db {
+  provider   = "postgresql"
+  url        = env("DATABASE_URL")
+  directUrl  = env("DIRECT_URL")
+}
+
+// ============ 用户系统 ============
+
+enum UserRole {
+  ADMIN
+  FREE
+  BASIC
+  PRO
+}
+
+enum SubscriptionPlan {
+  FREE
+  BASIC
+  PRO
+}
+
+enum SubscriptionStatus {
+  active
+  expired
+  cancelled
+}
+
+model User {
+  id             String        @id @default(uuid()) @db.Uuid
+  email          String        @unique
+  name           String?
+  passwordHash   String?
+  avatar         String?
+  role           UserRole      @default(FREE)
+  subscription   Subscription?
+  projects       Project[]
+  aiUsageLogs    AIUsageLog[]
+  accounts       Account[]
+  sessions       Session[]
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("users")
+}
+
+model Subscription {
+  id              String              @id @default(uuid()) @db.Uuid
+  userId          String              @unique @db.Uuid
+  user            User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            SubscriptionPlan    @default(FREE)
+  status          SubscriptionStatus  @default(active)
+  expiresAt       DateTime?
+  renewAt         DateTime?
+  paymentProvider String?
+  providerSubId   String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("subscriptions")
+}
+
+// ============ 项目 & 知识库 ============
+
+enum ProjectMode {
+  PIPELINE
+  WORKBENCH
+  CHAT
+}
+
+enum ProjectStatus {
+  draft
+  active
+  archived
+}
+
+model Project {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String        @db.Uuid
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  genre       String        @default("都市")
+  synopsis    String?
+  mode        ProjectMode   @default(PIPELINE)
+  currentStep Int           @default(1)
+  status      ProjectStatus @default(draft)
+  wordCount   Int           @default(0)
+  coverImage  String?
+  worldSettings WorldSetting[]
+  characters  Character[]
+  outlines    Outline[]
+  chapters    Chapter[]
+  chatSessions ChatSession[]
+  aiUsageLogs AIUsageLog[]
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([userId])
+  @@map("projects")
+}
+
+enum WorldSettingCategory {
+  BACKGROUND
+  GEOGRAPHY
+  RULE
+  SYSTEM
+  OTHER
+}
+
+model WorldSetting {
+  id          String               @id @default(uuid()) @db.Uuid
+  projectId   String               @db.Uuid
+  project     Project              @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  category    WorldSettingCategory @default(BACKGROUND)
+  title       String
+  content     Json
+  version     Int                  @default(1)
+  createdAt   DateTime             @default(now())
+  updatedAt   DateTime             @updatedAt
+
+  @@index([projectId])
+  @@map("world_settings")
+}
+
+enum CharacterRole {
+  PROTAGONIST
+  SUPPORTING
+  ANTAGONIST
+  EXTRA
+}
+
+model Character {
+  id            String        @id @default(uuid()) @db.Uuid
+  projectId     String        @db.Uuid
+  project       Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  name          String
+  role          CharacterRole @default(SUPPORTING)
+  appearance    String?
+  personality   String?
+  background    String?
+  motivation    String?
+  arc           String?
+  relationships Json          @default("[]")
+  version       Int           @default(1)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@index([projectId])
+  @@map("characters")
+}
+
+model Outline {
+  id              String   @id @default(uuid()) @db.Uuid
+  projectId       String   @db.Uuid
+  project         Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  volume          Int      @default(1)
+  chapter         Int
+  sceneTitle      String
+  sceneSummary    String
+  povCharacterId  String?  @db.Uuid
+  plotPoints      Json     @default("[]")
+  foreshadowing   String?
+  order           Float    @default(0)
+  chapterRecord   Chapter?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([projectId])
+  @@map("outlines")
+}
+
+enum ChapterStatus {
+  draft
+  final
+}
+
+model Chapter {
+  id          String        @id @default(uuid()) @db.Uuid
+  projectId   String        @db.Uuid
+  project     Project       @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  outlineId   String?       @unique @db.Uuid
+  outline     Outline?      @relation(fields: [outlineId], references: [id], onDelete: SetNull)
+  title       String
+  content     String        @default("")
+  wordCount   Int           @default(0)
+  status      ChapterStatus @default(draft)
+  summary     String?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([projectId])
+  @@map("chapters")
+}
+
+enum ChatSessionStatus {
+  active
+  converted
+}
+
+model ChatSession {
+  id             String            @id @default(uuid()) @db.Uuid
+  projectId      String            @db.Uuid
+  project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  messages       Json              @default("[]")
+  extractedCards Json              @default("{}")
+  branchPoints   Json              @default("[]")
+  status         ChatSessionStatus @default(active)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+
+  @@index([projectId])
+  @@map("chat_sessions")
+}
+
+enum VersionEntityType {
+  chapter
+  worldsetting
+  character
+}
+
+model Version {
+  id         String           @id @default(uuid()) @db.Uuid
+  entityType VersionEntityType
+  entityId   String           @db.Uuid
+  snapshot   Json
+  label      String?
+  createdAt  DateTime         @default(now())
+
+  @@index([entityType, entityId])
+  @@map("versions")
+}
+
+enum AIAction {
+  inspire
+  worldbuild
+  character
+  outline
+  expand
+  polish
+  chat
+}
+
+model AIUsageLog {
+  id               String   @id @default(uuid()) @db.Uuid
+  userId           String   @db.Uuid
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  projectId        String?  @db.Uuid
+  project          Project? @relation(fields: [projectId], references: [id], onDelete: SetNull)
+  action           AIAction
+  model            String
+  promptTokens     Int      @default(0)
+  completionTokens Int      @default(0)
+  cost             Decimal  @default(0) @db.Decimal(10, 6)
+  createdAt        DateTime @default(now())
+
+  @@index([userId])
+  @@index([projectId])
+  @@map("ai_usage_logs")
+}
+
+// ============ NextAuth ============
+
+model Account {
+  id                String  @id @default(uuid()) @db.Uuid
+  userId            String  @db.Uuid
+  user              User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(uuid()) @db.Uuid
+  sessionToken String   @unique
+  userId       String   @db.Uuid
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expires      DateTime
+
+  @@map("sessions")
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+  @@map("verification_tokens")
+}
