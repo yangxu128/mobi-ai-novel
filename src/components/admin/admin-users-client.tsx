@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import {
   Select,
   SelectContent,
@@ -25,7 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/toast";
-import { updateUserRoleAction, deleteUserAction } from "@/actions/admin";
+import { updateUserRoleAction, deleteUserAction, updateUserSubscriptionAction } from "@/actions/admin";
 import { Search, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 
 type UserItem = {
@@ -40,10 +39,10 @@ type UserItem = {
 };
 
 const roleColors: Record<string, string> = {
-  ADMIN: "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400",
-  PRO: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400",
-  BASIC: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400",
-  FREE: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
+  ADMIN: "bg-status-error/10 text-status-error",
+  PRO: "bg-bg-brand-popup text-text-brand",
+  BASIC: "bg-status-info/10 text-status-info",
+  FREE: "bg-bg-overlay-l1 text-text-secondary",
 };
 
 export function AdminUsersClient({
@@ -80,6 +79,18 @@ export function AdminUsersClient({
     });
   }
 
+  function onPlanChange(userId: string, plan: string) {
+    startTransition(async () => {
+      const res = await updateUserSubscriptionAction(userId, plan as "FREE" | "BASIC" | "PRO");
+      if (res.ok) {
+        toast({ title: "订阅套餐已更新", type: "success" });
+        router.refresh();
+      } else {
+        toast({ title: "操作失败", description: res.error, type: "error" });
+      }
+    });
+  }
+
   function onDelete(userId: string) {
     startTransition(async () => {
       const res = await deleteUserAction(userId);
@@ -97,7 +108,7 @@ export function AdminUsersClient({
       {/* 搜索 */}
       <form onSubmit={onSearch} className="flex gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
           <Input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
@@ -105,15 +116,15 @@ export function AdminUsersClient({
             className="pl-9"
           />
         </div>
-        <Button type="submit" variant="outline" size="sm" className="border-neutral-200 hover:bg-neutral-50">搜索</Button>
+        <Button type="submit" variant="outline" size="sm">搜索</Button>
       </form>
 
       {/* 表格 */}
-      <div className="border rounded-lg overflow-hidden">
+      <div className="rounded-lg border border-border-neutral-l1 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr className="text-left">
+            <thead className="bg-bg-overlay-l1">
+              <tr className="text-left text-text-default">
                 <th className="px-4 py-3 font-medium">用户</th>
                 <th className="px-4 py-3 font-medium">角色</th>
                 <th className="px-4 py-3 font-medium">订阅</th>
@@ -123,19 +134,19 @@ export function AdminUsersClient({
                 <th className="px-4 py-3 font-medium text-right">操作</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border-neutral-l1">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={7} className="px-4 py-12 text-center text-text-tertiary">
                     没有找到用户
                   </td>
                 </tr>
               ) : (
                 users.map((u) => (
-                  <tr key={u.id} className="hover:bg-muted/30">
+                  <tr key={u.id} className="hover:bg-bg-overlay-l1">
                     <td className="px-4 py-3">
-                      <div className="font-medium">{u.name || "未命名"}</div>
-                      <div className="text-xs text-muted-foreground">{u.email}</div>
+                      <div className="font-medium text-text-default">{u.name || "未命名"}</div>
+                      <div className="text-xs text-text-tertiary">{u.email}</div>
                     </td>
                     <td className="px-4 py-3">
                       <Select
@@ -159,23 +170,30 @@ export function AdminUsersClient({
                       </Select>
                     </td>
                     <td className="px-4 py-3">
-                      {u.subscription ? (
-                        <Badge variant="outline" className="text-xs">
-                          {u.subscription.plan}
-                        </Badge>
-                      ) : (
-                        <span className="text-xs text-muted-foreground">-</span>
-                      )}
+                      <Select
+                        value={u.subscription?.plan || "FREE"}
+                        onValueChange={(v) => onPlanChange(u.id, v)}
+                        disabled={pending || u.role === "ADMIN"}
+                      >
+                        <SelectTrigger className="w-28 h-8">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="FREE">FREE</SelectItem>
+                          <SelectItem value="BASIC">BASIC</SelectItem>
+                          <SelectItem value="PRO">PRO</SelectItem>
+                        </SelectContent>
+                      </Select>
                     </td>
-                    <td className="px-4 py-3 text-center">{u._count.projects}</td>
-                    <td className="px-4 py-3 text-center">{u._count.aiUsageLogs}</td>
-                    <td className="px-4 py-3 text-muted-foreground">
+                    <td className="px-4 py-3 text-center text-text-default">{u._count.projects}</td>
+                    <td className="px-4 py-3 text-center text-text-default">{u._count.aiUsageLogs}</td>
+                    <td className="px-4 py-3 text-text-tertiary">
                       {new Date(u.createdAt).toLocaleDateString("zh-CN")}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" disabled={pending} className="text-destructive hover:text-destructive">
+                          <Button variant="ghost" size="sm" disabled={pending} className="text-status-error hover:text-status-error">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
@@ -190,7 +208,7 @@ export function AdminUsersClient({
                             <AlertDialogCancel>取消</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => onDelete(u.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              className="bg-status-error text-text-onaccent hover:bg-status-error-hover"
                             >
                               确认删除
                             </AlertDialogAction>
@@ -219,11 +237,10 @@ export function AdminUsersClient({
               params.set("page", String(page - 1));
               router.push(`/admin/users?${params.toString()}`);
             }}
-            className="border-neutral-200 hover:bg-neutral-50"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-text-tertiary">
             {page} / {totalPages}
           </span>
           <Button
@@ -236,7 +253,6 @@ export function AdminUsersClient({
               params.set("page", String(page + 1));
               router.push(`/admin/users?${params.toString()}`);
             }}
-            className="border-neutral-200 hover:bg-neutral-50"
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

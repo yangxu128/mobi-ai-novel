@@ -5,6 +5,8 @@ import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { signIn } from "@/lib/auth";
 import { z } from "zod";
+import { headers } from "next/headers";
+import { rateLimit } from "@/lib/ai/rate-limit";
 
 const registerSchema = z.object({
   email: z.string().email("邮箱格式不正确"),
@@ -13,6 +15,17 @@ const registerSchema = z.object({
 });
 
 export async function registerAction(formData: FormData) {
+  // 限流：每 IP 每小时最多 5 次注册请求，防刷注册
+  const h = await headers();
+  const ip =
+    h.get("x-forwarded-for")?.split(",")[0]?.trim() ||
+    h.get("x-real-ip") ||
+    "unknown";
+  const rl = rateLimit(`register:${ip}`, 5, 60 * 60 * 1000);
+  if (!rl.ok) {
+    return { ok: false, error: "注册请求过于频繁，请稍后再试" };
+  }
+
   const parsed = registerSchema.safeParse({
     email: formData.get("email"),
     password: formData.get("password"),

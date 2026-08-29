@@ -8,12 +8,12 @@ import { extractCardsPrompt } from "@/lib/ai/prompts";
 
 /**
  * 对话共创相关 Server Actions。
+ * ChatMessage 现在是独立表，不再用 JSON 列存储。
  */
 
-interface ChatMessage {
+interface ChatMessageInput {
   role: "user" | "assistant" | "system";
   content: string;
-  timestamp?: string;
 }
 
 export async function getChatSessionAction(projectId: string) {
@@ -22,7 +22,16 @@ export async function getChatSessionAction(projectId: string) {
 
   const project = await prisma.project.findUnique({
     where: { id: projectId },
-    include: { chatSessions: { orderBy: { createdAt: "desc" }, take: 1 } },
+    include: {
+      chatSessions: {
+        where: { deletedAt: null },
+        orderBy: { createdAt: "desc" },
+        take: 1,
+        include: {
+          messages: { orderBy: { timestamp: "asc" } },
+        },
+      },
+    },
   });
   if (!project || project.userId !== user.id) {
     return { ok: false, error: "项目不存在或无权限" };
@@ -30,7 +39,10 @@ export async function getChatSessionAction(projectId: string) {
 
   let session = project.chatSessions[0];
   if (!session) {
-    session = await prisma.chatSession.create({ data: { projectId } });
+    session = await prisma.chatSession.create({
+      data: { projectId },
+      include: { messages: { orderBy: { timestamp: "asc" } } },
+    });
   }
 
   return { ok: true, session };
@@ -38,7 +50,7 @@ export async function getChatSessionAction(projectId: string) {
 
 export async function appendChatMessageAction(opts: {
   sessionId: string;
-  message: ChatMessage;
+  message: ChatMessageInput;
 }) {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "未登录" };
@@ -51,12 +63,35 @@ export async function appendChatMessageAction(opts: {
     return { ok: false, error: "无权限" };
   }
 
-  const messages = Array.isArray(session.messages) ? session.messages : [];
-  messages.push({ ...opts.message, timestamp: new Date().toISOString() });
+  const msg = await prisma.chatMessage.create({
+    data: {
+      sessionId: opts.sessionId,
+      role: opts.message.role,
+      content: opts.message.content,
+    },
+  });
 
-  await prisma.chatSession.update({
-    where: { id: opts.sessionId },
-    data: { messages },
+  return { ok: true, message: msg };
+}
+
+/**
+ * 批量获取会话消息（供客户端初始化用）。
+ */
+export async function getChatMessagesAction(sessionId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "未登录" };
+
+  const session = await prisma.chatSession.findUnique({
+    where: { id: sessionId },
+    include: { project: { select: { userId: true } } },
+  });
+  if (!session || session.project.userId !== user.id) {
+    return { ok: false, error: "无权限" };
+  }
+
+  const messages = await prisma.chatMessage.findMany({
+    where: { sessionId },
+    orderBy: { timestamp: "asc" },
   });
 
   return { ok: true, messages };
@@ -77,7 +112,11 @@ export async function extractCardsFromChatAction(sessionId: string) {
     return { ok: false, error: "无权限" };
   }
 
-  const messages = (session.messages as unknown as ChatMessage[]) || [];
+  const messages = await prisma.chatMessage.findMany({
+    where: { sessionId },
+    orderBy: { timestamp: "asc" },
+  });
+
   const dialogue = messages
     .filter((m) => m.role !== "system")
     .map((m) => `${m.role === "user" ? "用户" : "AI"}：${m.content}`)
@@ -164,9 +203,7 @@ export async function commitExtractedCardsAction(sessionId: string) {
     });
   }
 
-  revalidatePath(`/chat/${projectId}`);
-  revalidatePath(`/editor/${projectId}`);
-  revalidatePath(`/pipeline/${projectId}`);
+  revalidatePath(`/project/${projectId}`);
   return { ok: true };
 }
 
@@ -187,6 +224,6 @@ export async function convertChatToProjectAction(projectId: string) {
     data: { status: "converted" },
   });
 
-  revalidatePath(`/chat/${projectId}`);
+  revalidatePath(`/project/${projectId}`);
   return { ok: true };
 }

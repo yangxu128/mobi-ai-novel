@@ -40,9 +40,9 @@ const modeLabels: Record<string, string> = {
 };
 
 const statusColors: Record<string, string> = {
-  draft: "bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400",
-  active: "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400",
-  archived: "bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400",
+  draft: "bg-bg-overlay-l1 text-text-secondary",
+  active: "bg-status-success-surface-l1 text-status-success",
+  archived: "bg-status-warning-surface-l1 text-status-warning",
 };
 
 export function AdminProjectsClient({
@@ -90,7 +90,7 @@ export function AdminProjectsClient({
     <div className="space-y-4">
       <form onSubmit={onSearch} className="flex gap-2">
         <div className="relative flex-1 max-w-sm">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
           <Input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
@@ -98,14 +98,14 @@ export function AdminProjectsClient({
             className="pl-9"
           />
         </div>
-        <Button type="submit" variant="outline" size="sm" className="border-neutral-200 hover:bg-neutral-50">搜索</Button>
+        <Button type="submit" variant="outline" size="sm">搜索</Button>
       </form>
 
-      <div className="border rounded-lg overflow-hidden">
+      <div className="rounded-lg border border-border-neutral-l1 overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-muted/50">
-              <tr className="text-left">
+            <thead className="bg-bg-overlay-l1">
+              <tr className="text-left text-text-default">
                 <th className="px-4 py-3 font-medium">项目</th>
                 <th className="px-4 py-3 font-medium">作者</th>
                 <th className="px-4 py-3 font-medium">类型</th>
@@ -117,24 +117,24 @@ export function AdminProjectsClient({
                 <th className="px-4 py-3 font-medium text-right">操作</th>
               </tr>
             </thead>
-            <tbody className="divide-y">
+            <tbody className="divide-y divide-border-neutral-l1">
               {projects.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="px-4 py-12 text-center text-muted-foreground">
+                  <td colSpan={9} className="px-4 py-12 text-center text-text-tertiary">
                     没有找到项目
                   </td>
                 </tr>
               ) : (
                 projects.map((p) => (
-                  <tr key={p.id} className="hover:bg-muted/30">
+                  <tr key={p.id} className="hover:bg-bg-overlay-l1">
                     <td className="px-4 py-3">
-                      <div className="font-medium truncate max-w-48">{p.title}</div>
+                      <div className="font-medium text-text-default truncate max-w-48">{p.title}</div>
                     </td>
                     <td className="px-4 py-3">
-                      <div className="text-xs">{p.user.name || "未命名"}</div>
-                      <div className="text-xs text-muted-foreground">{p.user.email}</div>
+                      <div className="text-xs text-text-default">{p.user.name || "未命名"}</div>
+                      <div className="text-xs text-text-tertiary">{p.user.email}</div>
                     </td>
-                    <td className="px-4 py-3 text-muted-foreground">{p.genre}</td>
+                    <td className="px-4 py-3 text-text-tertiary">{p.genre}</td>
                     <td className="px-4 py-3">
                       <Badge variant="outline" className="text-xs">
                         {modeLabels[p.mode] || p.mode}
@@ -145,15 +145,15 @@ export function AdminProjectsClient({
                         {p.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center">{p._count.chapters}</td>
-                    <td className="px-4 py-3 text-center">{p.wordCount.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-muted-foreground text-xs">
+                    <td className="px-4 py-3 text-center text-text-default">{p._count.chapters}</td>
+                    <td className="px-4 py-3 text-center text-text-default">{p.wordCount.toLocaleString()}</td>
+                    <td className="px-4 py-3 text-text-tertiary text-xs">
                       {new Date(p.updatedAt).toLocaleDateString("zh-CN")}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
-                          <Button variant="ghost" size="sm" disabled={pending} className="text-destructive hover:text-destructive">
+                          <Button variant="ghost" size="sm" disabled={pending} className="text-status-error hover:text-status-error">
                             <Trash2 className="h-4 w-4" />
                           </Button>
                         </AlertDialogTrigger>
@@ -168,7 +168,7 @@ export function AdminProjectsClient({
                             <AlertDialogCancel>取消</AlertDialogCancel>
                             <AlertDialogAction
                               onClick={() => onDelete(p.id)}
-                              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              className="bg-status-error text-text-onaccent hover:bg-status-error-hover"
                             >
                               确认删除
                             </AlertDialogAction>
@@ -186,13 +186,13 @@ export function AdminProjectsClient({
 
       {totalPages > 1 && (
         <div className="flex items-center justify-center gap-2">
-          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goPage(page - 1)} className="border-neutral-200 hover:bg-neutral-50">
+          <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => goPage(page - 1)}>
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-muted-foreground">
+          <span className="text-sm text-text-tertiary">
             {page} / {totalPages}
           </span>
-          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => goPage(page + 1)} className="border-neutral-200 hover:bg-neutral-50">
+          <Button variant="outline" size="sm" disabled={page >= totalPages} onClick={() => goPage(page + 1)}>
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

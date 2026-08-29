@@ -54,8 +54,7 @@ export async function saveWorldSettingAction(opts: {
       },
     });
   }
-  revalidatePath(`/pipeline/${opts.projectId}`);
-  revalidatePath(`/editor/${opts.projectId}`);
+  revalidatePath(`/project/${opts.projectId}`);
   return { ok: true };
 }
 
@@ -69,9 +68,12 @@ export async function deleteWorldSettingAction(id: string) {
   });
   if (!ws || ws.project.userId !== user.id) return { ok: false, error: "无权限" };
 
-  await prisma.worldSetting.delete({ where: { id } });
-  revalidatePath(`/pipeline/${ws.project.id}`);
-  revalidatePath(`/editor/${ws.project.id}`);
+  // 软删除
+  await prisma.worldSetting.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+  revalidatePath(`/project/${ws.project.id}`);
   return { ok: true };
 }
 
@@ -121,8 +123,7 @@ export async function saveCharacterAction(opts: {
       },
     });
   }
-  revalidatePath(`/pipeline/${opts.projectId}`);
-  revalidatePath(`/editor/${opts.projectId}`);
+  revalidatePath(`/project/${opts.projectId}`);
   return { ok: true };
 }
 
@@ -136,9 +137,12 @@ export async function deleteCharacterAction(id: string) {
   });
   if (!ch || ch.project.userId !== user.id) return { ok: false, error: "无权限" };
 
-  await prisma.character.delete({ where: { id } });
-  revalidatePath(`/pipeline/${ch.project.id}`);
-  revalidatePath(`/editor/${ch.project.id}`);
+  // 软删除
+  await prisma.character.update({
+    where: { id },
+    data: { deletedAt: new Date() },
+  });
+  revalidatePath(`/project/${ch.project.id}`);
   return { ok: true };
 }
 
@@ -177,13 +181,15 @@ export async function saveOutlineAction(opts: {
     })),
   });
 
-  revalidatePath(`/pipeline/${opts.projectId}`);
-  revalidatePath(`/editor/${opts.projectId}`);
+  revalidatePath(`/project/${opts.projectId}`);
   return { ok: true };
 }
 
 /**
  * 根据大纲批量创建空章节。
+ * 注意：saveOutlineAction 会删除旧大纲再重建（ID 全部变化），
+ * 旧章节的 outlineId 会被 onDelete: SetNull 置空。
+ * 因此这里先按标题匹配已有章节，匹配到的更新 outlineId 关联，匹配不到的才创建。
  */
 export async function createChaptersFromOutlinesAction(projectId: string): Promise<ActionResult> {
   const check = await ensureProjectOwner(projectId);
@@ -194,20 +200,38 @@ export async function createChaptersFromOutlinesAction(projectId: string): Promi
     orderBy: { order: "asc" },
   });
 
+  // 一次性查出项目下所有未删除的章节，避免 N+1 查询
+  const existingChapters = await prisma.chapter.findMany({
+    where: { projectId, deletedAt: null },
+    select: { id: true, title: true, outlineId: true },
+  });
+  const titleMap = new Map(existingChapters.map((c) => [c.title, c]));
+
   for (const o of outlines) {
-    const exists = await prisma.chapter.findUnique({ where: { outlineId: o.id } });
-    if (!exists) {
+    // 先检查是否已通过 outlineId 关联
+    const byOutline = existingChapters.find((c) => c.outlineId === o.id);
+    if (byOutline) continue;
+
+    const title = `第${o.chapter}章 ${o.sceneTitle}`;
+    // 按标题匹配已有章节（可能是大纲重建导致 outlineId 被置空的旧章节）
+    const byTitle = titleMap.get(title);
+    if (byTitle) {
+      // 复用已有章节，仅更新 outlineId 关联
+      await prisma.chapter.update({
+        where: { id: byTitle.id },
+        data: { outlineId: o.id },
+      });
+    } else {
       await prisma.chapter.create({
         data: {
           projectId,
           outlineId: o.id,
-          title: `第${o.chapter}章 ${o.sceneTitle}`,
+          title,
         },
       });
     }
   }
 
-  revalidatePath(`/editor/${projectId}`);
-  revalidatePath(`/pipeline/${projectId}`);
+  revalidatePath(`/project/${projectId}`);
   return { ok: true };
 }

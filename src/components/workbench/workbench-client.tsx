@@ -1,33 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import Link from "next/link";
-import dynamic from "next/dynamic";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Plus, Trash2, FileText, Maximize2, ArrowLeft } from "lucide-react";
+import { TipTapEditor } from "@/components/editor/tiptap-editor";
+import { KnowledgeSidebarCompact } from "@/components/knowledge/knowledge-sidebar-compact";
 import { createChapterAction, deleteChapterAction, renameChapterAction } from "@/actions/chapter";
 import { toast } from "@/components/ui/toast";
 import { formatWordCount } from "@/lib/utils";
-
-const TipTapEditor = dynamic(
-  () => import("@/components/editor/tiptap-editor").then((m) => m.TipTapEditor),
-  {
-    ssr: false,
-    loading: () => (
-      <div className="flex-1 flex items-center justify-center text-sm text-muted-foreground">
-        编辑器加载中...
-      </div>
-    ),
-  }
-);
-
-const KnowledgeSidebar = dynamic(
-  () => import("@/components/knowledge/knowledge-sidebar").then((m) => m.KnowledgeSidebar),
-  { ssr: false }
-);
 
 interface Chapter {
   id: string;
@@ -35,6 +18,11 @@ interface Chapter {
   content: string;
   wordCount: number;
   status: string;
+  outline?: {
+    sceneTitle?: string | null;
+    sceneSummary?: string | null;
+    plotPoints?: unknown;
+  } | null;
 }
 
 interface Project {
@@ -54,7 +42,10 @@ interface Project {
   chapters: Chapter[];
 }
 
-export function WorkbenchClient({ project }: { project: Project }) {
+// 静态 import TipTap：ProjectWorkspace 已经通过 requestIdleCallback 预加载，
+// 这里静态 import 不会重复下载，且能让 React 在挂载时直接拿到组件引用
+// 用 React.memo 包裹整个组件，ProjectWorkspace 的其他状态变化不会重渲染工作台
+function WorkbenchClientImpl({ project }: { project: Project }) {
   const [chapters, setChapters] = useState<Chapter[]>(project.chapters);
   const [activeId, setActiveId] = useState<string | null>(
     project.chapters[0]?.id || null
@@ -97,24 +88,24 @@ export function WorkbenchClient({ project }: { project: Project }) {
   }
 
   return (
-    <div className="flex flex-1 min-h-0 bg-white rounded-2xl shadow-sm border border-neutral-100 overflow-hidden">
+    <div className="flex flex-1 min-h-0 bg-bg-base-default rounded-2xl shadow-sm border border-border-neutral-l1 overflow-hidden">
       {/* 左侧章节树 */}
       {!focusMode && (
-        <aside className="w-60 border-r border-neutral-100 bg-white flex flex-col">
-          <div className="p-3 border-b border-neutral-100">
+        <aside className="w-60 border-r border-border-neutral-l1 bg-bg-base-tertiary flex flex-col">
+          <div className="p-3 border-b border-border-neutral-l1">
             <Link
               href="/projects"
-              className="flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              className="flex items-center gap-1 text-xs text-text-tertiary hover:text-text-default"
             >
               <ArrowLeft className="h-3 w-3" />
               返回项目列表
             </Link>
             <h2 className="text-sm font-semibold mt-2 truncate">{project.title}</h2>
           </div>
-          <div className="p-2 border-b border-neutral-100">
+          <div className="p-2 border-b border-border-neutral-l1">
             <Button
               size="sm"
-              className="w-full bg-neutral-900 text-white hover:bg-neutral-800"
+              className="w-full bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover"
               onClick={() => setCreating(true)}
             >
               <Plus className="h-3.5 w-3.5" />
@@ -133,31 +124,31 @@ export function WorkbenchClient({ project }: { project: Project }) {
                     if (e.key === "Escape") setCreating(false);
                   }}
                 />
-                <Button size="sm" onClick={createChapter} className="h-8 px-2 bg-neutral-900 text-white hover:bg-neutral-800">添加</Button>
+                <Button size="sm" onClick={createChapter} className="h-8 px-2 bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">添加</Button>
               </div>
             )}
           </div>
-          <ScrollArea className="flex-1">
+          <div className="flex-1 min-h-0 overflow-y-auto">
             <div className="p-2 space-y-0.5">
               {chapters.length === 0 ? (
-                <p className="text-xs text-muted-foreground p-3">还没有章节，点击上方&ldquo;新章节&rdquo;创建</p>
+                <p className="text-xs text-text-tertiary p-3">还没有章节，点击上方&ldquo;新章节&rdquo;创建</p>
               ) : (
                 chapters.map((c) => (
                   <div
                     key={c.id}
                     className={`group flex items-center gap-1 px-2 py-1.5 rounded-md text-sm cursor-pointer ${
-                      activeId === c.id ? "bg-neutral-100" : "hover:bg-neutral-50"
+                      activeId === c.id ? "bg-bg-overlay-l1" : "hover:bg-bg-overlay-l1"
                     }`}
                     onClick={() => setActiveId(c.id)}
                   >
-                    <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
+                    <FileText className="h-3 w-3 shrink-0 text-text-tertiary" />
                     <span className="flex-1 truncate">{c.title}</span>
                     <button
                       onClick={(e) => {
                         e.stopPropagation();
                         delChapter(c.id);
                       }}
-                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-destructive/10 hover:text-destructive rounded"
+                      className="opacity-0 group-hover:opacity-100 p-0.5 hover:bg-status-error/10 hover:text-status-error rounded"
                     >
                       <Trash2 className="h-3 w-3" />
                     </button>
@@ -165,12 +156,12 @@ export function WorkbenchClient({ project }: { project: Project }) {
                 ))
               )}
             </div>
-          </ScrollArea>
+          </div>
         </aside>
       )}
 
       {/* 中间编辑器 */}
-      <main className="flex-1 flex flex-col bg-white">
+      <main className="flex-1 min-h-0 flex flex-col bg-bg-base-default">
         {active ? (
           <TipTapEditor
             key={active.id}
@@ -178,13 +169,14 @@ export function WorkbenchClient({ project }: { project: Project }) {
             projectId={project.id}
             initialTitle={active.title}
             initialContent={active.content}
+            outline={active.outline}
             onSaveTitle={(t) => onRename(active.id, t)}
           />
         ) : (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-3">
-              <FileText className="h-12 w-12 text-muted-foreground/40 mx-auto" />
-              <p className="text-sm text-muted-foreground">
+              <FileText className="h-12 w-12 text-text-tertiary/40 mx-auto" />
+              <p className="text-sm text-text-tertiary">
                 {chapters.length === 0 ? "创建第一个章节开始创作" : "从左侧选择章节"}
               </p>
             </div>
@@ -197,7 +189,7 @@ export function WorkbenchClient({ project }: { project: Project }) {
             <TooltipTrigger asChild>
               <button
                 onClick={() => setFocusMode(!focusMode)}
-                className="fixed bottom-4 right-4 h-9 w-9 rounded-full bg-neutral-900 text-white shadow-lg flex items-center justify-center hover:bg-neutral-800 z-30"
+                className="fixed bottom-4 right-4 h-9 w-9 rounded-full bg-bg-brand text-text-onbrand shadow-lg flex items-center justify-center hover:bg-bg-brand-hover z-30"
               >
                 <Maximize2 className="h-4 w-4" />
               </button>
@@ -211,9 +203,8 @@ export function WorkbenchClient({ project }: { project: Project }) {
 
       {/* 右侧知识库 */}
       {!focusMode && (
-        <aside className="w-72 hidden lg:block border-l border-neutral-100 bg-white">
-          <KnowledgeSidebar
-            projectId={project.id}
+        <aside className="w-72 hidden lg:block border-l border-border-neutral-l1 bg-bg-base-default">
+          <KnowledgeSidebarCompact
             worldSettings={project.worldSettings}
             characters={project.characters}
           />
@@ -222,3 +213,9 @@ export function WorkbenchClient({ project }: { project: Project }) {
     </div>
   );
 }
+
+// memo 包裹：项目数据变化时（其他视图操作触发）不会重渲染工作台
+export const WorkbenchClient = memo(WorkbenchClientImpl, (prev, next) => {
+  // 只在 project.id 变化时重渲染，project 内部数据变化由子组件自己管理
+  return prev.project.id === next.project.id;
+});

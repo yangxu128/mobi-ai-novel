@@ -3,23 +3,40 @@ import { Slot } from "@radix-ui/react-slot";
 import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
+/**
+ * TraeWork 按钮组件。
+ *
+ * 内部使用 `.ds-btn` + `.ds-btn--*` 变体类，cva 仅做 API 透传。
+ * 保留 shadcn API（variant/size/asChild）以便业务代码 0 修改。
+ *
+ * 颜色说明：--bg-brand 为暖橙强调色（#FF7A00），
+ * 主按钮显示为橙底白字，符合"友好专业 AI 创作工具"的主题定位。
+ */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50",
+  "ds-btn",
   {
     variants: {
       variant: {
-        default: "bg-primary text-primary-foreground hover:bg-primary/90",
-        destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border border-input bg-background hover:bg-accent hover:text-accent-foreground",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-secondary/80",
-        ghost: "hover:bg-accent hover:text-accent-foreground",
-        link: "text-primary underline-offset-4 hover:underline",
+        default: "ds-btn--primary",
+        primary: "ds-btn--primary",
+        secondary: "ds-btn--secondary",
+        outline: "ds-btn--secondary",
+        ghost: "ds-btn--tertiary",
+        tertiary: "ds-btn--tertiary",
+        destructive: "ds-btn--danger",
+        danger: "ds-btn--danger",
+        "danger-strong": "ds-btn--danger-strong",
+        "danger-subtle": "ds-btn--danger-subtle",
+        link: "ds-btn--link",
+        brand: "ds-btn--brand",
+        warning: "ds-btn--warning",
       },
       size: {
-        default: "h-9 px-4 py-2",
-        sm: "h-8 rounded-md px-3 text-xs",
-        lg: "h-10 rounded-md px-8",
-        icon: "h-9 w-9",
+        sm: "ds-btn--sm",
+        md: "ds-btn--md",
+        lg: "ds-btn--lg",
+        default: "ds-btn--md",
+        icon: "ds-btn--icon",
       },
     },
     defaultVariants: { variant: "default", size: "default" },

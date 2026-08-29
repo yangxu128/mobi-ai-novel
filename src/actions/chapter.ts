@@ -28,13 +28,18 @@ export async function saveChapterContentAction(chapterId: string, content: strin
     data: { content, wordCount },
   });
 
-  // 更新项目总字数
-  await prisma.$executeRaw`
-    UPDATE projects SET "wordCount" = (
-      SELECT COALESCE(SUM("wordCount"), 0) FROM chapters WHERE "projectId" = ${chapter.projectId}
-    ), "updatedAt" = NOW()
-    WHERE id = ${chapter.projectId}
-  `;
+  // 更新项目总字数（用 Prisma 聚合 + update 避免 raw query 的 uuid/text 类型问题）
+  const agg = await prisma.chapter.aggregate({
+    where: { projectId: chapter.projectId, deletedAt: null },
+    _sum: { wordCount: true },
+  });
+  await prisma.project.update({
+    where: { id: chapter.projectId },
+    data: { wordCount: agg._sum.wordCount ?? 0 },
+  });
+
+  // 静默刷新 SSR 数据，不触发客户端 fetch abort
+  revalidatePath(`/project/${chapter.projectId}`);
 
   return { ok: true, wordCount };
 }
@@ -63,7 +68,7 @@ export async function createChapterAction(opts: {
     },
   });
 
-  revalidatePath(`/editor/${opts.projectId}`);
+  revalidatePath(`/project/${opts.projectId}`);
   return { ok: true, chapter };
 }
 
@@ -79,8 +84,12 @@ export async function deleteChapterAction(chapterId: string) {
     return { ok: false, error: "章节不存在或无权限" };
   }
 
-  await prisma.chapter.delete({ where: { id: chapterId } });
-  revalidatePath(`/editor/${chapter.project.id}`);
+  // 软删除：标记 deletedAt
+  await prisma.chapter.update({
+    where: { id: chapterId },
+    data: { deletedAt: new Date() },
+  });
+  revalidatePath(`/project/${chapter.project.id}`);
   return { ok: true };
 }
 
@@ -88,10 +97,19 @@ export async function renameChapterAction(chapterId: string, title: string) {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "未登录" };
 
+  const chapter = await prisma.chapter.findUnique({
+    where: { id: chapterId },
+    include: { project: { select: { userId: true, id: true } } },
+  });
+  if (!chapter || chapter.project.userId !== user.id) {
+    return { ok: false, error: "章节不存在或无权限" };
+  }
+
   await prisma.chapter.update({
     where: { id: chapterId },
     data: { title },
   });
+  revalidatePath(`/project/${chapter.project.id}`);
   return { ok: true };
 }
 
@@ -129,9 +147,48 @@ export async function markChapterFinalAction(chapterId: string) {
     }
   }
 
-  revalidatePath(`/editor/${chapter.project.id}`);
-  revalidatePath(`/pipeline/${chapter.project.id}`);
+  revalidatePath(`/project/${chapter.project.id}`);
   return { ok: true };
+}
+
+/**
+ * 校验实体归属当前用户。
+ * chapter/worldsetting/character 均通过 projectId 关联到 Project.userId。
+ */
+async function ensureEntityOwned(
+  entityType: "chapter" | "worldsetting" | "character",
+  entityId: string,
+  userId: string
+): Promise<{ ok: true; projectId: string } | { ok: false; error: string }> {
+  if (entityType === "chapter") {
+    const ch = await prisma.chapter.findUnique({
+      where: { id: entityId },
+      include: { project: { select: { userId: true, id: true } } },
+    });
+    if (!ch || ch.project.userId !== userId) {
+      return { ok: false, error: "实体不存在或无权限" };
+    }
+    return { ok: true, projectId: ch.project.id };
+  }
+  if (entityType === "worldsetting") {
+    const ws = await prisma.worldSetting.findUnique({
+      where: { id: entityId },
+      include: { project: { select: { userId: true, id: true } } },
+    });
+    if (!ws || ws.project.userId !== userId) {
+      return { ok: false, error: "实体不存在或无权限" };
+    }
+    return { ok: true, projectId: ws.project.id };
+  }
+  // character
+  const c = await prisma.character.findUnique({
+    where: { id: entityId },
+    include: { project: { select: { userId: true, id: true } } },
+  });
+  if (!c || c.project.userId !== userId) {
+    return { ok: false, error: "实体不存在或无权限" };
+  }
+  return { ok: true, projectId: c.project.id };
 }
 
 /**
@@ -145,6 +202,9 @@ export async function saveVersionAction(opts: {
 }) {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "未登录" };
+
+  const check = await ensureEntityOwned(opts.entityType, opts.entityId, user.id);
+  if (!check.ok) return check;
 
   await prisma.version.create({
     data: {
@@ -164,8 +224,15 @@ export async function listVersionsAction(opts: {
   const user = await getCurrentUser();
   if (!user) return [];
 
+  const check = await ensureEntityOwned(opts.entityType, opts.entityId, user.id);
+  if (!check.ok) return [];
+
   return prisma.version.findMany({
-    where: { entityType: opts.entityType, entityId: opts.entityId },
+    where: {
+      entityType: opts.entityType,
+      entityId: opts.entityId,
+      deletedAt: null,
+    },
     orderBy: { createdAt: "desc" },
     take: 30,
   });

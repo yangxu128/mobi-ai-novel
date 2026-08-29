@@ -10,7 +10,7 @@ import { Sparkles, Loader2, Check, Shield, Save } from "lucide-react";
 import { useAIStream } from "@/hooks/use-ai-stream";
 import { saveChapterContentAction, markChapterFinalAction } from "@/actions/chapter";
 import { toast } from "@/components/ui/toast";
-import { formatWordCount } from "@/lib/utils";
+import { formatWordCount, htmlToText, textToHtml } from "@/lib/utils";
 
 interface Chapter {
   id: string;
@@ -30,6 +30,7 @@ export function Step6Polish({
   chapters: Chapter[];
 }) {
   const [activeId, setActiveId] = useState<string | null>(chapters[0]?.id || null);
+  // 流水线编辑以纯文本为主，存回数据库时统一转回 TipTap 兼容的 HTML
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [style, setStyle] = useState<(typeof polishStyles)[number]>("文笔提升");
   const [selectedText, setSelectedText] = useState("");
@@ -42,7 +43,10 @@ export function Step6Polish({
   const checkStream = useAIStream();
 
   const activeChapter = chapters.find((c) => c.id === activeId);
-  const activeDraft = activeId ? draft[activeId] ?? activeChapter?.content ?? "" : "";
+  const initialText = htmlToText(activeChapter?.content);
+  const activeDraft = activeId
+    ? draft[activeId] ?? initialText
+    : "";
 
   async function onPolishFull() {
     if (!activeChapter || !activeDraft.trim()) {
@@ -82,7 +86,8 @@ export function Step6Polish({
 
   async function onSave() {
     if (!activeChapter) return;
-    const res = await saveChapterContentAction(activeChapter.id, activeDraft);
+    // 纯文本回写为 TipTap 兼容的 HTML
+    const res = await saveChapterContentAction(activeChapter.id, textToHtml(activeDraft));
     if (res.ok) {
       toast({ title: "已保存", type: "success" });
     } else {
@@ -129,20 +134,20 @@ export function Step6Polish({
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold mb-1">第六步：润色定稿</h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-text-tertiary">
           全文或选段润色：文笔提升、对话优化、节奏调整、环境描写加强。一致性检查标记矛盾
         </p>
       </div>
 
       <div className="grid lg:grid-cols-[260px_1fr_320px] gap-4">
         {/* 章节列表 */}
-        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+        <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">章节列表</CardTitle>
           </CardHeader>
           <CardContent className="p-2">
             {chapters.length === 0 ? (
-              <p className="text-xs text-muted-foreground p-3">还没有章节</p>
+              <p className="text-xs text-text-tertiary p-3">还没有章节</p>
             ) : (
               <div className="space-y-1">
                 {chapters.map((c) => (
@@ -150,14 +155,14 @@ export function Step6Polish({
                     key={c.id}
                     onClick={() => setActiveId(c.id)}
                     className={`w-full text-left px-3 py-2 rounded-md text-sm transition-colors ${
-                      activeId === c.id ? "bg-neutral-100 text-foreground" : "hover:bg-neutral-50"
+                      activeId === c.id ? "bg-bg-overlay-l1 text-text-default" : "hover:bg-bg-overlay-l1"
                     }`}
                   >
                     <div className="truncate flex items-center gap-1">
-                      {c.status === "final" && <Check className="h-3 w-3 text-emerald-600 shrink-0" />}
+                      {c.status === "final" && <Check className="h-3 w-3 text-status-success shrink-0" />}
                       {c.title}
                     </div>
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-text-tertiary">
                       {formatWordCount(c.wordCount)}
                     </div>
                   </button>
@@ -168,7 +173,7 @@ export function Step6Polish({
         </Card>
 
         {/* 编辑区 */}
-        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+        <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
           <CardHeader className="pb-3">
             <CardTitle className="text-base">{activeChapter?.title || "请选择章节"}</CardTitle>
           </CardHeader>
@@ -186,7 +191,7 @@ export function Step6Polish({
                   ))}
                 </SelectContent>
               </Select>
-              <Button onClick={onPolishFull} disabled={polishStream.isStreaming || !activeChapter} size="sm" className="bg-neutral-900 text-white hover:bg-neutral-800">
+              <Button onClick={onPolishFull} disabled={polishStream.isStreaming || !activeChapter} size="sm" className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">
                 {polishStream.isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 润色全文
               </Button>
@@ -195,7 +200,7 @@ export function Step6Polish({
                 disabled={inlineStream.isStreaming || !activeChapter}
                 size="sm"
                 variant="outline"
-                className="border-neutral-200 hover:bg-neutral-50"
+                className="border-border-neutral-l2 hover:bg-bg-overlay-l1"
               >
                 {inlineStream.isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
                 润色选段
@@ -208,7 +213,7 @@ export function Step6Polish({
                     polishStream.stop();
                     inlineStream.stop();
                   }}
-                  className="border-neutral-200 hover:bg-neutral-50"
+                  className="border-border-neutral-l2 hover:bg-bg-overlay-l1"
                 >
                   停止
                 </Button>
@@ -216,12 +221,12 @@ export function Step6Polish({
             </div>
 
             {polishStream.error && (
-              <div className="mb-3 p-3 rounded-md border border-destructive text-sm text-destructive">
+              <div className="mb-3 p-3 rounded-md border border-status-error text-sm text-status-error">
                 {polishStream.error}
               </div>
             )}
             {inlineStream.error && (
-              <div className="mb-3 p-3 rounded-md border border-destructive text-sm text-destructive">
+              <div className="mb-3 p-3 rounded-md border border-status-error text-sm text-status-error">
                 {inlineStream.error}
               </div>
             )}
@@ -244,21 +249,21 @@ export function Step6Polish({
             />
 
             {selectedText && (
-              <p className="text-xs text-muted-foreground mt-2">
+              <p className="text-xs text-text-tertiary mt-2">
                 已选中：{selectedText.length} 字
               </p>
             )}
 
             <div className="flex items-center justify-between mt-3">
-              <span className="text-xs text-muted-foreground">
+              <span className="text-xs text-text-tertiary">
                 {formatWordCount(activeDraft.replace(/\s/g, "").length)}
               </span>
               <div className="flex gap-2">
-                <Button variant="outline" onClick={onSave} disabled={!activeChapter} className="border-neutral-200 hover:bg-neutral-50">
+                <Button variant="outline" onClick={onSave} disabled={!activeChapter} className="border-border-neutral-l2 hover:bg-bg-overlay-l1">
                   <Save className="h-4 w-4" />
                   保存
                 </Button>
-                <Button onClick={onMarkFinal} disabled={!activeChapter} className="bg-neutral-900 text-white hover:bg-neutral-800">
+                <Button onClick={onMarkFinal} disabled={!activeChapter} className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">
                   <Check className="h-4 w-4" />
                   标记定稿
                 </Button>
@@ -268,7 +273,7 @@ export function Step6Polish({
         </Card>
 
         {/* 一致性检查 */}
-        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+        <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm flex items-center gap-2">
               <Shield className="h-4 w-4" />
@@ -283,18 +288,18 @@ export function Step6Polish({
               onClick={onConsistencyCheck}
               disabled={checkStream.isStreaming || !activeChapter}
               size="sm"
-              className="w-full bg-neutral-900 text-white hover:bg-neutral-800"
+              className="w-full bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover"
             >
               {checkStream.isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Shield className="h-4 w-4" />}
               {checkStream.isStreaming ? "检查中..." : "开始检查"}
             </Button>
 
             {checkStream.error && (
-              <p className="text-xs text-destructive mt-3">{checkStream.error}</p>
+              <p className="text-xs text-status-error mt-3">{checkStream.error}</p>
             )}
 
             {checkStream.isStreaming && (
-              <pre className="text-xs whitespace-pre-wrap font-mono text-muted-foreground stream-cursor mt-3 max-h-96 overflow-auto">
+              <pre className="text-xs whitespace-pre-wrap font-mono text-text-tertiary stream-cursor mt-3 max-h-96 overflow-auto">
                 {checkStream.text}
               </pre>
             )}
@@ -302,21 +307,21 @@ export function Step6Polish({
             {!checkStream.isStreaming && checkStream.text && (
               <div className="mt-3 space-y-2">
                 {tryParseConflicts(checkStream.text).length === 0 ? (
-                  <p className="text-xs text-emerald-600">未发现矛盾，章节一致。</p>
+                  <p className="text-xs text-status-success">未发现矛盾，章节一致。</p>
                 ) : (
                   tryParseConflicts(checkStream.text).map((c, i) => (
-                    <div key={i} className="p-2 rounded-md bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-900">
-                      <div className="text-xs font-medium text-amber-900 dark:text-amber-200">矛盾 {i + 1}</div>
+                    <div key={i} className="p-2 rounded-md bg-status-warning/10 border border-status-warning/30">
+                      <div className="text-xs font-medium text-status-warning">矛盾 {i + 1}</div>
                       <div className="text-xs mt-1">
-                        <span className="text-muted-foreground">原文：</span>
+                        <span className="text-text-tertiary">原文：</span>
                         <span>{c.quote}</span>
                       </div>
                       <div className="text-xs mt-1">
-                        <span className="text-muted-foreground">问题：</span>
+                        <span className="text-text-tertiary">问题：</span>
                         <span>{c.conflict}</span>
                       </div>
                       <div className="text-xs mt-1">
-                        <span className="text-muted-foreground">建议：</span>
+                        <span className="text-text-tertiary">建议：</span>
                         <span>{c.suggestion}</span>
                       </div>
                     </div>

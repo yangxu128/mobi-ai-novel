@@ -1,18 +1,12 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { AdminUsersClient } from "@/components/admin/admin-users-client";
 
+// 注：session 校验已下沉到 admin/layout.tsx
 export default async function AdminUsersPage({
   searchParams,
 }: {
   searchParams: Promise<{ search?: string; page?: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login?callbackUrl=/admin/users");
-  if (session.user.role !== "ADMIN") redirect("/projects");
-
   const sp = await searchParams;
   const search = sp.search || "";
   const page = Math.max(1, parseInt(sp.page || "1", 10));
@@ -50,27 +44,19 @@ export default async function AdminUsersPage({
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <div className="container py-6">
-      <div className="flex gap-6">
-        <AdminSidebar active="users" />
+    <div>
+      <h1 className="text-2xl font-bold mb-1 text-text-default">用户管理</h1>
+      <p className="text-sm text-text-secondary mb-6">共 {total} 个用户</p>
 
-        <div className="flex-1 min-w-0">
-          <div className="bg-white rounded-2xl shadow-sm p-6">
-            <h1 className="text-2xl font-bold mb-1">用户管理</h1>
-            <p className="text-sm text-muted-foreground mb-6">共 {total} 个用户</p>
-
-            <AdminUsersClient
-              users={users.map((u) => ({
-                ...u,
-                createdAt: u.createdAt.toISOString(),
-              }))}
-              page={page}
-              totalPages={totalPages}
-              search={search}
-            />
-          </div>
-        </div>
-      </div>
+      <AdminUsersClient
+        users={users.map((u) => ({
+          ...u,
+          createdAt: u.createdAt.toISOString(),
+        }))}
+        page={page}
+        totalPages={totalPages}
+        search={search}
+      />
     </div>
   );
 }

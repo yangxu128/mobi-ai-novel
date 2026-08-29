@@ -88,11 +88,14 @@ model Project {
   title       String
   genre       String        @default("都市")
   synopsis    String?
+  styleProfile   Json?
   mode        ProjectMode   @default(PIPELINE)
   currentStep Int           @default(1)
   status      ProjectStatus @default(draft)
   wordCount   Int           @default(0)
   coverImage  String?
+  model       String?       // 项目级 AI 模型选择，null 时回退到 DEFAULT_MODEL
+  deletedAt   DateTime?
   worldSettings WorldSetting[]
   characters  Character[]
   outlines    Outline[]
@@ -121,6 +124,7 @@ model WorldSetting {
   category    WorldSettingCategory @default(BACKGROUND)
   title       String
   content     Json
+  deletedAt   DateTime?
   version     Int                  @default(1)
   createdAt   DateTime             @default(now())
   updatedAt   DateTime             @updatedAt
@@ -148,6 +152,7 @@ model Character {
   motivation    String?
   arc           String?
   relationships Json          @default("[]")
+  deletedAt     DateTime?
   version       Int           @default(1)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
@@ -192,10 +197,12 @@ model Chapter {
   wordCount   Int           @default(0)
   status      ChapterStatus @default(draft)
   summary     String?
+  deletedAt   DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
   @@index([projectId])
+  @@index([projectId, createdAt])
   @@map("chapters")
 }
 
@@ -208,15 +215,29 @@ model ChatSession {
   id             String            @id @default(uuid()) @db.Uuid
   projectId      String            @db.Uuid
   project        Project           @relation(fields: [projectId], references: [id], onDelete: Cascade)
-  messages       Json              @default("[]")
+  messages       ChatMessage[]
   extractedCards Json              @default("{}")
   branchPoints   Json              @default("[]")
   status         ChatSessionStatus @default(active)
+  deletedAt      DateTime?
   createdAt      DateTime          @default(now())
   updatedAt      DateTime          @updatedAt
 
   @@index([projectId])
   @@map("chat_sessions")
+}
+
+model ChatMessage {
+  id          String      @id @default(uuid()) @db.Uuid
+  sessionId   String      @db.Uuid
+  session     ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  role        String
+  content     String
+  timestamp   DateTime    @default(now())
+  deletedAt   DateTime?
+
+  @@index([sessionId])
+  @@map("chat_messages")
 }
 
 enum VersionEntityType {
@@ -231,6 +252,7 @@ model Version {
   entityId   String           @db.Uuid
   snapshot   Json
   label      String?
+  deletedAt  DateTime?
   createdAt  DateTime         @default(now())
 
   @@index([entityType, entityId])
@@ -245,6 +267,10 @@ enum AIAction {
   expand
   polish
   chat
+  consistency
+  extract
+  summary
+  analyzeStyle
 }
 
 model AIUsageLog {
@@ -262,6 +288,7 @@ model AIUsageLog {
 
   @@index([userId])
   @@index([projectId])
+  @@index([userId, createdAt])
   @@map("ai_usage_logs")
 }
 

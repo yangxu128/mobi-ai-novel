@@ -5,58 +5,41 @@
  * - 知识库 RAG：在 Supabase 上用 pgvector 检索（需先建好索引和触发器）；
  *   若 pgvector 不可用，自动降级为按 category 全量取世界观，按 role 取主角+反派。
  * - 上下文窗口：按设计文档的分层摘要策略——近期 2-3 章原文 + 中期 10-20 章摘要 + 知识卡。
+ *
+ * 性能优化：使用 React.cache 包装，同一请求内多次调用只查一次 DB。
+ * 这在 route.ts 的 actionHandlers 中很重要：expand/consistency/chat 都可能
+ * 在同一个请求中调用 buildChapterContext（虽然当前只有一个 action 被触发，
+ * 但 cache 也能防止将来引入复合 action 时的重复查询）。
  */
 
+import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import type { KnowledgeContext } from "./prompts";
-
-const categoryLabel: Record<string, string> = {
-  BACKGROUND: "时代背景",
-  GEOGRAPHY: "地理",
-  RULE: "社会规则",
-  SYSTEM: "力量体系",
-  OTHER: "其他",
-};
-
-const roleLabel: Record<string, string> = {
-  PROTAGONIST: "主角",
-  SUPPORTING: "配角",
-  ANTAGONIST: "反派",
-  EXTRA: "路人",
-};
+import { categoryLabel, roleLabel } from "@/lib/knowledge/labels";
 
 /**
  * 组装章节扩写所需的上下文。
+ * 使用 React.cache 包装：同一请求内多次调用同一 projectId 只查一次 DB。
  */
-export async function buildChapterContext(opts: {
-  projectId: string;
-  currentOutlineId?: string;
-  query?: string; // RAG 查询（如大纲摘要 + 角色名）
-}): Promise<KnowledgeContext> {
-  const [worldSettings, characters, recentChapters, currentOutline] =
+export const buildChapterContext = cache(
+  async (opts: {
+    projectId: string;
+    currentOutlineId?: string;
+    query?: string; // RAG 查询（如大纲摘要 + 角色名）
+  }): Promise<KnowledgeContext> => {
+  const [worldSettings, characters, currentOutline] =
     await Promise.all([
-      // 世界观全量（MVP 不做向量检索，全量返回，单项目通常不超过 20 张）
+      // 世界观：限制最多 30 条，防止知识库过大时 prompt 爆 token
       prisma.worldSetting.findMany({
-        where: { projectId: opts.projectId },
+        where: { projectId: opts.projectId, deletedAt: null },
         orderBy: { updatedAt: "desc" },
+        take: 30,
       }),
-      // 角色全量
+      // 角色：限制最多 20 条
       prisma.character.findMany({
-        where: { projectId: opts.projectId },
+        where: { projectId: opts.projectId, deletedAt: null },
         orderBy: [{ role: "asc" }, { updatedAt: "desc" }],
-      }),
-      // 最近 3 章原文 + 更早 5 章摘要
-      prisma.chapter.findMany({
-        where: { projectId: opts.projectId },
-        orderBy: { createdAt: "desc" },
-        take: 8,
-        select: {
-          id: true,
-          title: true,
-          content: true,
-          summary: true,
-          wordCount: true,
-        },
+        take: 20,
       }),
       // 当前大纲
       opts.currentOutlineId
@@ -65,6 +48,85 @@ export async function buildChapterContext(opts: {
           })
         : Promise.resolve(null),
     ]);
+
+  // 按"大纲顺序"取前文，而非 createdAt desc
+  // 逻辑：
+  // 1. 如果有 currentOutline，按其 order 找到前面 order 严格小于它的 8 个大纲（按 order 降序取 8 个）
+  // 2. 如果没有 currentOutline（无大纲关联），退回 createdAt desc 兜底
+  let chapterCandidates: Array<{
+    id: string;
+    title: string;
+    content: string | null;
+    summary: string | null;
+    wordCount: number;
+  }> = [];
+
+  if (currentOutline) {
+    // 1. 取紧邻的 8 个大纲（order 降序）
+    const prevOutlines = await prisma.outline.findMany({
+      where: {
+        projectId: opts.projectId,
+        order: { lt: currentOutline.order },
+      },
+      orderBy: { order: "desc" },
+      take: 8,
+      select: { id: true, sceneTitle: true, sceneSummary: true },
+    });
+
+    // 2. 通过 outlineId 反查 chapter（一个大纲可能 0 章、1 章或多章）
+    if (prevOutlines.length > 0) {
+      const prevOutlineIds = prevOutlines.map((o) => o.id);
+      chapterCandidates = await prisma.chapter.findMany({
+        where: {
+          projectId: opts.projectId,
+          outlineId: { in: prevOutlineIds },
+          deletedAt: null,
+        },
+        select: {
+          id: true,
+          title: true,
+          content: true,
+          summary: true,
+          wordCount: true,
+        },
+      });
+    }
+  }
+
+  // 兜底：如果按大纲顺序取不到任何章节（旧数据/无大纲关联场景），退回 createdAt desc
+  if (chapterCandidates.length === 0) {
+    chapterCandidates = await prisma.chapter.findMany({
+      where: { projectId: opts.projectId, deletedAt: null },
+      orderBy: { createdAt: "desc" },
+      take: 8,
+      select: {
+        id: true,
+        title: true,
+        content: true,
+        summary: true,
+        wordCount: true,
+      },
+    });
+  }
+
+  // 限制最多 8 章
+  let recentChapters = chapterCandidates.slice(0, 8);
+
+  // 按大纲顺序升序排序：紧邻的上一章排第 1 位，最早一章排最后
+  // 保证"前 3 章用原文"中的"前 3 章"是真正的紧邻前文，而非 DB 任意顺序
+  if (currentOutline && recentChapters.length > 0) {
+    const candidateIds = recentChapters.map((c) => c.id);
+    const chaptersWithOutline = await prisma.chapter.findMany({
+      where: { id: { in: candidateIds } },
+      select: { id: true, outline: { select: { order: true } } },
+    });
+    const orderMap = new Map(
+      chaptersWithOutline.map((c) => [c.id, c.outline?.order ?? Infinity])
+    );
+    recentChapters = recentChapters.sort((a, b) => {
+      return (orderMap.get(a.id) ?? Infinity) - (orderMap.get(b.id) ?? Infinity);
+    });
+  }
 
   // 分层：前 3 章用原文，后 5 章用摘要
   const layered = recentChapters.map((ch: { title: string; content: string | null; summary: string | null }, idx: number) => {
@@ -111,6 +173,7 @@ export async function buildChapterContext(opts: {
       : undefined,
   };
 }
+);
 
 /**
  * 用量记账。失败不阻塞主流程。

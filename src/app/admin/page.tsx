@@ -1,16 +1,10 @@
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Users, FolderOpen, FileText, Sparkles } from "lucide-react";
 
+// 注：session 校验已下沉到 admin/layout.tsx，避免在每个子页面重复
 export default async function AdminDashboardPage() {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login?callbackUrl=/admin");
-  if (session.user.role !== "ADMIN") redirect("/projects");
-
   const [userCount, projectCount, chapterCount, todayLogs] = await Promise.all([
     prisma.user.count(),
     prisma.project.count(),
@@ -59,61 +53,59 @@ export default async function AdminDashboardPage() {
   ];
 
   return (
-    <div className="container py-6">
-      <div className="flex gap-6">
-        <AdminSidebar active="dashboard" />
+    <>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold mb-1 text-text-default">管理后台</h1>
+        <p className="text-sm text-text-secondary">平台运营数据总览</p>
+      </div>
 
-        <div className="flex-1 min-w-0">
-          <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
-            <h1 className="text-2xl font-bold mb-1">管理后台</h1>
-            <p className="text-sm text-muted-foreground">平台运营数据总览</p>
-          </div>
+      {/* 统计卡片 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        {cards.map((c) => (
+          <Link key={c.label} href={c.href} className="block">
+            <Card className="hover:border-border-neutral-l2 transition-colors">
+              <CardHeader className="flex flex-row items-center justify-between pb-2">
+                <CardTitle className="text-sm font-medium text-text-secondary">
+                  {c.label}
+                </CardTitle>
+                <c.icon className="h-4 w-4 text-icon-tertiary" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-text-default">{c.value.toLocaleString()}</div>
+              </CardContent>
+            </Card>
+          </Link>
+        ))}
+      </div>
 
-          {/* 统计卡片 */}
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-            {cards.map((c) => (
-              <Link key={c.label} href={c.href}>
-                <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white hover:border-neutral-300 transition-colors">
-                  <CardHeader className="flex flex-row items-center justify-between pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      {c.label}
-                    </CardTitle>
-                    <c.icon className="h-4 w-4 text-muted-foreground" />
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold">{c.value.toLocaleString()}</div>
-                  </CardContent>
-                </Card>
-              </Link>
+      {/* 7 天 AI Token 趋势 */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base text-text-default">近 7 天 AI Token 消耗</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex items-end gap-3 h-48">
+            {dailyTokens.map((d) => (
+              <div key={d.date} className="flex-1 flex flex-col items-center gap-2">
+                <div className="text-xs text-text-tertiary">{d.tokens}</div>
+                <div
+                  className="w-full rounded-t-sm transition-all"
+                  style={{
+                    height: `${(d.tokens / maxTokens) * 100}%`,
+                    minHeight: d.tokens > 0 ? "4px" : "0",
+                    background: "var(--bg-invert)",
+                  }}
+                />
+                <div className="text-xs text-text-tertiary">{d.date}</div>
+              </div>
             ))}
           </div>
-
-          {/* 7 天 AI Token 趋势 */}
-          <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
-            <CardHeader>
-              <CardTitle className="text-base">近 7 天 AI Token 消耗</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="flex items-end gap-3 h-48">
-                {dailyTokens.map((d) => (
-                  <div key={d.date} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="text-xs text-muted-foreground">{d.tokens}</div>
-                    <div
-                      className="w-full bg-primary/80 rounded-t-sm transition-all"
-                      style={{ height: `${(d.tokens / maxTokens) * 100}%`, minHeight: d.tokens > 0 ? "4px" : "0" }}
-                    />
-                    <div className="text-xs text-muted-foreground">{d.date}</div>
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 pt-4 border-t flex items-center justify-between text-sm">
-                <span className="text-muted-foreground">今日 Token 消耗</span>
-                <span className="font-medium">{todayTokens.toLocaleString()}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </div>
+          <div className="mt-4 pt-4 border-t border-border-neutral-l1 flex items-center justify-between text-sm">
+            <span className="text-text-secondary">今日 Token 消耗</span>
+            <span className="font-medium text-text-default">{todayTokens.toLocaleString()}</span>
+          </div>
+        </CardContent>
+      </Card>
+    </>
   );
 }

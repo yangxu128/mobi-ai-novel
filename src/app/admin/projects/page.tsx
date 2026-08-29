@@ -1,18 +1,12 @@
-import { redirect } from "next/navigation";
-import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { AdminSidebar } from "@/components/admin/admin-sidebar";
 import { AdminProjectsClient } from "@/components/admin/admin-projects-client";
 
+// 注：session 校验已下沉到 admin/layout.tsx
 export default async function AdminProjectsPage({
   searchParams,
 }: {
   searchParams: Promise<{ search?: string; page?: string }>;
 }) {
-  const session = await auth();
-  if (!session?.user?.id) redirect("/login?callbackUrl=/admin/projects");
-  if (session.user.role !== "ADMIN") redirect("/projects");
-
   const sp = await searchParams;
   const search = sp.search || "";
   const page = Math.max(1, parseInt(sp.page || "1", 10));
@@ -52,28 +46,20 @@ export default async function AdminProjectsPage({
   const totalPages = Math.ceil(total / pageSize);
 
   return (
-    <div className="container py-6">
-      <div className="flex gap-6">
-        <AdminSidebar active="projects" />
+    <div>
+      <h1 className="text-2xl font-bold mb-1 text-text-default">项目管理</h1>
+      <p className="text-sm text-text-secondary mb-6">共 {total} 个项目</p>
 
-        <div className="flex-1 min-w-0">
-          <div className="bg-white rounded-2xl shadow-sm p-6">
-            <h1 className="text-2xl font-bold mb-1">项目管理</h1>
-            <p className="text-sm text-muted-foreground mb-6">共 {total} 个项目</p>
-
-            <AdminProjectsClient
-              projects={projects.map((p) => ({
-                ...p,
-                createdAt: p.createdAt.toISOString(),
-                updatedAt: p.updatedAt.toISOString(),
-              }))}
-              page={page}
-              totalPages={totalPages}
-              search={search}
-            />
-          </div>
-        </div>
-      </div>
+      <AdminProjectsClient
+        projects={projects.map((p) => ({
+          ...p,
+          createdAt: p.createdAt.toISOString(),
+          updatedAt: p.updatedAt.toISOString(),
+        }))}
+        page={page}
+        totalPages={totalPages}
+        search={search}
+      />
     </div>
   );
 }

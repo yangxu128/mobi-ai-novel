@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,7 +47,27 @@ const templates = ["三幕式", "英雄之旅", "网文黄金三章", "悬疑反
 export function Step4Outline({ projectId, genre, worldSummary, characterSummary, characters, existing }: Props) {
   const [items, setItems] = useState<OutlineItem[]>([]);
   const [template, setTemplate] = useState("三幕式");
-  const { generate, isStreaming, text, error, stop } = useAIStream();
+  const modeRef = useRef<"generate" | "append">("generate");
+  const { generate, isStreaming, text, error, stop } = useAIStream({
+    onDone: (fullText) => {
+      if (modeRef.current !== "append") return;
+      const appended = tryParse(fullText);
+      if (!appended || appended.length === 0) {
+        toast({ title: "AI 返回格式异常，无法解析", type: "error" });
+        return;
+      }
+      setItems((prev) => {
+        const maxChapter = prev.reduce((m, it) => Math.max(m, it.chapter), 0);
+        const adjusted = appended.map((p, i) => ({
+          ...p,
+          chapter: maxChapter + 1 + i,
+          order: prev.length + i,
+        }));
+        return [...prev, ...adjusted];
+      });
+      toast({ title: `已追加 ${appended.length} 条大纲`, type: "success" });
+    },
+  });
 
   useEffect(() => {
     if (existing.length > 0 && items.length === 0) {
@@ -119,6 +139,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
   }
 
   async function onGenerate() {
+    modeRef.current = "generate";
     setItems([]);
     await generate({
       action: "outline",
@@ -127,9 +148,30 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
     });
   }
 
+  async function onAppend() {
+    if (items.length === 0) {
+      toast({ title: "请先生成大纲", type: "warning" });
+      return;
+    }
+    modeRef.current = "append";
+    const existingOutlines = items.map((it) => ({
+      chapter: it.chapter,
+      sceneTitle: it.sceneTitle,
+      sceneSummary: it.sceneSummary,
+      povCharacter: it.povCharacter || "",
+      plotPoints: it.plotPoints,
+      foreshadowing: it.foreshadowing || "",
+    }));
+    await generate({
+      action: "outlineAppend",
+      projectId,
+      payload: { worldSummary, characterSummary, genre, template, existingOutlines },
+    });
+  }
+
   const parsed = useMemo(() => (text ? tryParse(text) : null), [text]);
   useEffect(() => {
-    if (parsed && parsed.length > 0) {
+    if (parsed && parsed.length > 0 && modeRef.current === "generate") {
       setItems(parsed);
     }
   }, [parsed]);
@@ -165,12 +207,12 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold mb-1">第四步：大纲生成</h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-text-tertiary">
           AI 基于世界观 + 角色卡生成结构化大纲：卷 → 章 → 场景。每个场景标注视角角色、情节点、伏笔
         </p>
       </div>
 
-      <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+      <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
         <CardHeader>
           <CardTitle className="text-base">生成参数</CardTitle>
           <CardDescription>选择大纲模板，AI 将参考世界观与角色生成</CardDescription>
@@ -192,12 +234,23 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
                 </SelectContent>
               </Select>
             </div>
-            <Button onClick={onGenerate} disabled={isStreaming} className="bg-neutral-900 text-white hover:bg-neutral-800">
+            <Button onClick={onGenerate} disabled={isStreaming} className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">
               {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {isStreaming ? "生成中..." : "AI 生成大纲"}
             </Button>
+            {items.length > 0 && (
+              <Button
+                onClick={onAppend}
+                disabled={isStreaming}
+                variant="outline"
+                className="border-border-neutral-l2 hover:bg-bg-overlay-l1"
+              >
+                {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+                {isStreaming ? "生成中..." : "继续生成"}
+              </Button>
+            )}
             {isStreaming && (
-              <Button variant="outline" onClick={stop} className="border-neutral-200 hover:bg-neutral-50">
+              <Button variant="outline" onClick={stop} className="border-border-neutral-l2 hover:bg-bg-overlay-l1">
                 停止
               </Button>
             )}
@@ -206,15 +259,15 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
       </Card>
 
       {error && (
-        <Card className="rounded-2xl border-destructive">
-          <CardContent className="py-4 text-sm text-destructive">{error}</CardContent>
+        <Card className="rounded-2xl border-status-error">
+          <CardContent className="py-4 text-sm text-status-error">{error}</CardContent>
         </Card>
       )}
 
       {text && !parsed && (
-        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+        <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
           <CardContent className="py-4">
-            <pre className="text-xs whitespace-pre-wrap font-mono text-muted-foreground stream-cursor">
+            <pre className="text-xs whitespace-pre-wrap font-mono text-text-tertiary stream-cursor">
               {text}
             </pre>
           </CardContent>
@@ -223,18 +276,18 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
 
       {items.length > 0 && (
         <div className="space-y-3">
-          <p className="text-sm text-muted-foreground">编辑大纲（含序号），确认后写入知识库并创建空章节</p>
+          <p className="text-sm text-text-tertiary">编辑大纲（含序号），确认后写入知识库并创建空章节</p>
           {items.map((it, idx) => (
-            <Card key={idx} className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+            <Card key={idx} className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
               <CardHeader className="pb-3">
-                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                <div className="flex items-center gap-2 text-xs text-text-tertiary">
                   <span>第 {idx + 1} 条</span>
                   {items.length > 1 && (
                     <button
                       onClick={() => {
                         setItems((arr) => arr.filter((_, i) => i !== idx));
                       }}
-                      className="ml-auto p-1 hover:bg-destructive/10 hover:text-destructive rounded"
+                      className="ml-auto p-1 hover:bg-status-error/10 hover:text-status-error rounded"
                       title="删除此条大纲"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -328,7 +381,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
             </Card>
           ))}
           <div className="flex justify-end">
-            <Button onClick={onSave} className="bg-neutral-900 text-white hover:bg-neutral-800">
+            <Button onClick={onSave} className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">
               <Save className="h-4 w-4" />
               保存大纲并创建空章节
             </Button>

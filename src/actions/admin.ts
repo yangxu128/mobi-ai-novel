@@ -221,3 +221,49 @@ export async function deleteProjectAdminAction(projectId: string): Promise<Actio
   revalidatePath("/admin/projects");
   return { ok: true };
 }
+
+/**
+ * 修改用户订阅套餐（管理员）。
+ * 同步更新 Subscription 表的 plan / status / expiresAt。
+ */
+export async function updateUserSubscriptionAction(
+  userId: string,
+  plan: "FREE" | "BASIC" | "PRO",
+  expiresAt?: string | null
+): Promise<ActionResult> {
+  const admin = await requireAdmin();
+  if (!admin) return { ok: false, error: "无权限" };
+  if (admin.id === userId) {
+    return { ok: false, error: "不能修改自己的订阅" };
+  }
+
+  const expDate = expiresAt ? new Date(expiresAt) : null;
+
+  // upsert：用户可能还没有 Subscription 记录
+  await prisma.subscription.upsert({
+    where: { userId },
+    update: {
+      plan,
+      status: plan === "FREE" ? "cancelled" : "active",
+      expiresAt: expDate,
+    },
+    create: {
+      userId,
+      plan,
+      status: plan === "FREE" ? "cancelled" : "active",
+      expiresAt: expDate,
+    },
+  });
+
+  // 同步更新用户角色（订阅与角色保持一致，ADMIN 除外）
+  const user = await prisma.user.findUnique({ where: { id: userId }, select: { role: true } });
+  if (user && user.role !== "ADMIN") {
+    await prisma.user.update({
+      where: { id: userId },
+      data: { role: plan },
+    });
+  }
+
+  revalidatePath("/admin/users");
+  return { ok: true };
+}

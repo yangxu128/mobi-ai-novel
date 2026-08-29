@@ -1,62 +1,51 @@
+/* TraeWork 设计系统入口
+ * 顺序很重要：tokens → scaffold → components
+ */
+@import "../styles/tokens.css";
+@import "../styles/scaffold.css";
+@import "../styles/components.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 @layer base {
-  :root {
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
-    --primary: 240 10% 20%;
-    --primary-foreground: 0 0% 98%;
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 240 10% 20%;
-    --radius: 0.5rem;
+  html, body {
+    height: 100%;
+  }
+  body {
+    background: var(--bg-base-secondary);
+    color: var(--text-default);
+    font-family: var(--font-family-default);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    font-feature-settings: "rlig" 1, "calt" 1;
   }
 
-  .dark {
-    --background: 240 10% 3.9%;
-    --foreground: 0 0% 98%;
-    --card: 240 10% 3.9%;
-    --card-foreground: 0 0% 98%;
-    --popover: 240 10% 3.9%;
-    --popover-foreground: 0 0% 98%;
-    --primary: 0 0% 98%;
-    --primary-foreground: 240 10% 3.9%;
-    --secondary: 240 3.7% 15.9%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 240 3.7% 15.9%;
-    --muted-foreground: 240 5% 64.9%;
-    --accent: 240 3.7% 15.9%;
-    --accent-foreground: 0 0% 98%;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 240 3.7% 15.9%;
-    --input: 240 3.7% 15.9%;
-    --ring: 240 4.9% 83.9%;
+  /* 线性图标统一 1.5px 描边（柔和细线风格） */
+  svg.lucide {
+    stroke-width: 1.5;
+  }
+
+  /* 减少动画偏好支持 */
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
   }
 }
 
-@layer base {
-  * {
-    @apply border-border;
-  }
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
+/* 页面切换内容淡入动画（避免合成层掉帧） */
+@keyframes page-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+.page-content {
+  animation: page-fade-in 0.12s ease-out;
+  scrollbar-gutter: stable;
 }
 
 /* 自定义滚动条 */
@@ -68,11 +57,11 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: hsl(var(--muted-foreground) / 0.3);
-  border-radius: 4px;
+  background: var(--border-neutral-l2);
+  border-radius: 999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: hsl(var(--muted-foreground) / 0.5);
+  background: var(--border-neutral-l3);
 }
 
 /* 流式输出光标 */
@@ -81,5 +70,159 @@
   display: inline-block;
   margin-left: 2px;
   animation: caret-blink 1.25s ease-out infinite;
-  color: hsl(var(--muted-foreground));
+  color: var(--text-tertiary);
+}
+@keyframes caret-blink {
+  50% { opacity: 0; }
+}
+
+/* 聊天 Markdown 渲染样式 */
+.chat-markdown {
+  line-height: 1.7;
+  word-break: break-word;
+}
+.chat-markdown p {
+  margin: 0.5em 0;
+}
+.chat-markdown p:first-child {
+  margin-top: 0;
+}
+.chat-markdown p:last-child {
+  margin-bottom: 0;
+}
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  font-weight: 600;
+  margin: 0.8em 0 0.4em;
+  line-height: 1.4;
+}
+.chat-markdown h1 { font-size: 1.25em; }
+.chat-markdown h2 { font-size: 1.15em; }
+.chat-markdown h3 { font-size: 1.05em; }
+.chat-markdown h4 { font-size: 1em; }
+.chat-markdown ul,
+.chat-markdown ol {
+  margin: 0.4em 0;
+  padding-left: 1.5em;
+}
+.chat-markdown li {
+  margin: 0.2em 0;
+}
+.chat-markdown blockquote {
+  border-left: 3px solid var(--border-neutral-l2);
+  padding-left: 0.8em;
+  margin: 0.5em 0;
+  color: var(--text-secondary);
+}
+.chat-markdown code {
+  background: var(--bg-overlay-l1);
+  padding: 0.15em 0.35em;
+  border-radius: var(--radius-4);
+  font-size: 0.875em;
+  font-family: var(--font-family-mono);
+}
+.chat-markdown pre {
+  background: var(--bg-overlay-l1);
+  padding: 0.75em 1em;
+  border-radius: var(--radius-8);
+  overflow-x: auto;
+  margin: 0.5em 0;
+}
+.chat-markdown pre code {
+  background: none;
+  padding: 0;
+}
+.chat-markdown strong {
+  font-weight: 600;
+}
+.chat-markdown em {
+  font-style: italic;
+}
+.chat-markdown a {
+  color: var(--text-brand);
+  text-decoration: underline;
+}
+.chat-markdown hr {
+  border: none;
+  border-top: 1px solid var(--border-neutral-l2);
+  margin: 1em 0;
+}
+.chat-markdown table {
+  border-collapse: collapse;
+  margin: 0.5em 0;
+  width: 100%;
+}
+.chat-markdown th,
+.chat-markdown td {
+  border: 1px solid var(--border-neutral-l2);
+  padding: 0.4em 0.6em;
+  text-align: left;
+}
+.chat-markdown th {
+  background: var(--bg-overlay-l1);
+  font-weight: 600;
+}
+
+/* TipTap prose 覆盖（保留样式） */
+.prose-editor {
+  font-family: var(--font-family-default);
+  font-size: var(--body-base-font-size);
+  line-height: var(--body-base-line-height);
+  color: var(--text-default);
+}
+.prose-editor h1 {
+  font-size: var(--heading-xl-font-size);
+  font-weight: var(--heading-xl-font-weight);
+  line-height: var(--heading-xl-line-height);
+  margin: 1.5em 0 0.5em;
+}
+.prose-editor h2 {
+  font-size: var(--heading-lg-font-size);
+  font-weight: var(--heading-lg-font-weight);
+  line-height: var(--heading-lg-line-height);
+  margin: 1.25em 0 0.5em;
+}
+.prose-editor h3 {
+  font-size: var(--heading-md-font-size);
+  font-weight: var(--heading-md-font-weight);
+  line-height: var(--heading-md-line-height);
+  margin: 1em 0 0.5em;
+}
+.prose-editor p {
+  margin: 0.75em 0;
+}
+.prose-editor blockquote {
+  border-left: 3px solid var(--border-neutral-l2);
+  padding-left: var(--spacer-16);
+  color: var(--text-secondary);
+  font-style: italic;
+}
+.prose-editor code {
+  font-family: var(--font-family-mono);
+  font-size: 0.875em;
+  background: var(--bg-overlay-l1);
+  padding: 2px 6px;
+  border-radius: var(--radius-4);
+}
+.prose-editor pre {
+  font-family: var(--font-family-mono);
+  background: var(--bg-overlay-l1);
+  padding: var(--spacer-12) var(--spacer-16);
+  border-radius: var(--radius-8);
+  overflow-x: auto;
+}
+.prose-editor ul,
+.prose-editor ol {
+  padding-left: var(--spacer-24);
+  margin: 0.75em 0;
+}
+.prose-editor li {
+  margin: 0.25em 0;
+}
+.prose-editor a {
+  color: var(--text-brand);
+  text-decoration: underline;
+  text-underline-offset: 2px;
 }

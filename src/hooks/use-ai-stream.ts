@@ -53,7 +53,19 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
         }
         if (!resp.ok || !resp.body) {
           const data = await resp.json().catch(() => ({}));
-          const msg = data.error || `请求失败 (${resp.status})`;
+          // data.error 可能是字符串或对象
+          let msg = `请求失败 (${resp.status})`;
+          if (typeof data.error === "string") {
+            msg = data.error;
+          } else if (data.error?.message) {
+            msg = data.error.message;
+          } else if (data.message) {
+            msg = data.message;
+          }
+          // 内容审查友好提示
+          if (data.error?.code === "data_inspection_failed" || msg.includes("inappropriate content")) {
+            msg = "输入或输出内容涉嫌敏感，已被内容安全审查拦截，请修改后重试";
+          }
           setError(msg);
           opts.onError?.(msg);
           setIsStreaming(false);

@@ -129,26 +129,26 @@ export function Step2Worldbuild({ projectId, genre, inspiration, existing }: Pro
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold mb-1">第二步：世界观构建</h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-text-tertiary">
           基于灵感卡，AI 生成世界观框架：时代背景、地理设定、社会规则、力量体系、核心矛盾
         </p>
       </div>
 
-      <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+      <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
         <CardHeader>
           <CardTitle className="text-base">灵感来源</CardTitle>
           <CardDescription>AI 将基于以下灵感生成世界观</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-muted-foreground whitespace-pre-line">
+          <p className="text-sm text-text-tertiary whitespace-pre-line">
             {inspiration || "(未填写灵感)"}
           </p>
-          <Button onClick={onGenerate} disabled={isStreaming} className="mt-4 bg-neutral-900 text-white hover:bg-neutral-800">
+          <Button onClick={onGenerate} disabled={isStreaming} className="mt-4 bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">
             {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
             {isStreaming ? "生成中..." : "AI 生成世界观"}
           </Button>
           {isStreaming && (
-            <Button variant="outline" onClick={stop} className="mt-4 ml-2 border-neutral-200 hover:bg-neutral-50">
+            <Button variant="outline" onClick={stop} className="mt-4 ml-2 border-border-neutral-l2 hover:bg-bg-overlay-l1">
               停止
             </Button>
           )}
@@ -156,15 +156,15 @@ export function Step2Worldbuild({ projectId, genre, inspiration, existing }: Pro
       </Card>
 
       {error && (
-        <Card className="rounded-2xl border-destructive">
-          <CardContent className="py-4 text-sm text-destructive">{error}</CardContent>
+        <Card className="rounded-2xl border-status-error">
+          <CardContent className="py-4 text-sm text-status-error">{error}</CardContent>
         </Card>
       )}
 
       {text && !parsed && (
-        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+        <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
           <CardContent className="py-4">
-            <pre className="text-xs whitespace-pre-wrap font-mono text-muted-foreground stream-cursor">
+            <pre className="text-xs whitespace-pre-wrap font-mono text-text-tertiary stream-cursor">
               {text}
             </pre>
           </CardContent>
@@ -174,14 +174,14 @@ export function Step2Worldbuild({ projectId, genre, inspiration, existing }: Pro
       {items.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">编辑世界观设定，确认后写入知识库</p>
-            <Button variant="outline" size="sm" onClick={addItem} className="border-neutral-200 hover:bg-neutral-50">
+            <p className="text-sm text-text-tertiary">编辑世界观设定，确认后写入知识库</p>
+            <Button variant="outline" size="sm" onClick={addItem} className="border-border-neutral-l2 hover:bg-bg-overlay-l1">
               <Plus className="h-3.5 w-3.5" />
               新增
             </Button>
           </div>
           {items.map((it, idx) => (
-            <Card key={idx} className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+            <Card key={idx} className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
               <CardHeader className="pb-3">
                 <div className="flex items-center gap-2">
                   <select
@@ -216,7 +216,7 @@ export function Step2Worldbuild({ projectId, genre, inspiration, existing }: Pro
             </Card>
           ))}
           <div className="flex justify-end">
-            <Button onClick={onSave} className="bg-neutral-900 text-white hover:bg-neutral-800">
+            <Button onClick={onSave} className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">
               <Save className="h-4 w-4" />
               保存并进入下一步
             </Button>

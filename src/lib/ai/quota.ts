@@ -5,12 +5,12 @@
 import { prisma } from "@/lib/prisma";
 
 const FREE_TIER_DAILY_LIMIT = Number(
-  process.env.FREE_TIER_DAILY_WORD_LIMIT || 500
+  process.env.FREE_TIER_DAILY_TOKEN_LIMIT || 500
 );
 const BASIC_TIER_DAILY_LIMIT = 10000;
 const PRO_TIER_DAILY_LIMIT = 50000;
-// 管理员不限量（用 PRO 级别上限作为合理阈值，避免误用）
-const ADMIN_TIER_DAILY_LIMIT = PRO_TIER_DAILY_LIMIT;
+// 管理员不限量
+const ADMIN_TIER_DAILY_LIMIT = Number.MAX_SAFE_INTEGER;
 
 function getLimitByRole(role: string): number {
   switch (role) {
@@ -25,17 +25,14 @@ function getLimitByRole(role: string): number {
   }
 }
 
-function todayKey(): string {
-  return new Date().toISOString().slice(0, 10);
-}
-
 /**
- * 查询当日已用字数。
+ * 查询当日已用 token 数（prompt + completion 总和）。
  */
 export async function getTodayUsage(userId: string): Promise<{
   used: number;
   limit: number;
   remaining: number;
+  unlimited: boolean;
 }> {
   const start = new Date();
   start.setHours(0, 0, 0, 0);
@@ -46,18 +43,28 @@ export async function getTodayUsage(userId: string): Promise<{
     where: { id: userId },
     select: { role: true },
   });
-  const limit = getLimitByRole(user?.role || "FREE");
+  const role = user?.role || "FREE";
+  const unlimited = role === "ADMIN";
+  const limit = getLimitByRole(role);
 
+  // 同时聚合 promptTokens 和 completionTokens，避免 RAG 场景下
+  // prompt 远大于 completion 时配额被低估
   const agg = await prisma.aIUsageLog.aggregate({
     where: {
       userId,
       createdAt: { gte: start, lt: end },
     },
-    _sum: { completionTokens: true },
+    _sum: { promptTokens: true, completionTokens: true },
   });
 
-  const used = agg._sum.completionTokens || 0;
-  return { used, limit, remaining: Math.max(0, limit - used) };
+  const used =
+    (agg._sum.promptTokens || 0) + (agg._sum.completionTokens || 0);
+  return {
+    used,
+    limit,
+    remaining: unlimited ? Number.MAX_SAFE_INTEGER : Math.max(0, limit - used),
+    unlimited,
+  };
 }
 
 /**
@@ -68,7 +75,10 @@ export async function checkQuota(userId: string): Promise<{
   used: number;
   limit: number;
   remaining: number;
+  unlimited: boolean;
 }> {
   const usage = await getTodayUsage(userId);
+  // ADMIN 不限量，直接放行
+  if (usage.unlimited) return { ok: true, ...usage };
   return { ok: usage.remaining > 0, ...usage };
 }

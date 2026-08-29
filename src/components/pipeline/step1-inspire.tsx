@@ -109,12 +109,12 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold mb-1">第一步：灵感卡生成</h2>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-text-tertiary">
           输入一句话点子，AI 生成 3 张灵感卡，每张包含故事内核、核心冲突、目标读者、情绪基调、参考作品
         </p>
       </div>
 
-      <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+      <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
         <CardHeader>
           <CardTitle className="text-base">你的灵感</CardTitle>
           <CardDescription>一句话描述你想写的故事</CardDescription>
@@ -129,12 +129,12 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
             className="rounded-xl"
           />
           <div className="flex gap-2">
-            <Button onClick={onGenerate} disabled={isStreaming || !idea.trim()} className="bg-neutral-900 text-white hover:bg-neutral-800">
+            <Button onClick={onGenerate} disabled={isStreaming || !idea.trim()} className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">
               {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
               {isStreaming ? "生成中..." : "生成灵感卡"}
             </Button>
             {isStreaming && (
-              <Button variant="outline" onClick={stop} className="border-neutral-200 hover:bg-neutral-50">
+              <Button variant="outline" onClick={stop} className="border-border-neutral-l2 hover:bg-bg-overlay-l1">
                 停止
               </Button>
             )}
@@ -143,16 +143,16 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
       </Card>
 
       {error && (
-        <Card className="rounded-2xl border-destructive">
-          <CardContent className="py-4 text-sm text-destructive">{error}</CardContent>
+        <Card className="rounded-2xl border-status-error">
+          <CardContent className="py-4 text-sm text-status-error">{error}</CardContent>
         </Card>
       )}
 
       {/* 原始文本：流式过程中或解析失败时显示 */}
       {showRaw && (
-        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+        <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
           <CardContent className="py-4">
-            <pre className="text-xs whitespace-pre-wrap font-mono text-muted-foreground stream-cursor">
+            <pre className="text-xs whitespace-pre-wrap font-mono text-text-tertiary stream-cursor">
               {text}
             </pre>
           </CardContent>
@@ -163,7 +163,7 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
       {parsed && parsed.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-text-tertiary">
               选择一张灵感卡作为后续创作的基础
             </p>
             <Button variant="ghost" size="sm" onClick={onGenerate} disabled={isStreaming}>
@@ -175,36 +175,36 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
             {parsed.map((c, i) => (
               <Card
                 key={i}
-                className={`cursor-pointer transition-all rounded-2xl border-neutral-100 shadow-sm bg-white ${
-                  selected === i ? "border-neutral-900 ring-2 ring-neutral-200" : "hover:border-neutral-300"
+                className={`cursor-pointer transition-all rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default ${
+                  selected === i ? "border-border-contrast ring-2 ring-border-neutral-l2" : "hover:border-border-neutral-l3"
                 }`}
                 onClick={() => setSelected(i)}
               >
                 <CardHeader className="pb-3">
                   <div className="flex items-center justify-between">
                     <CardTitle className="text-sm">灵感 {i + 1}</CardTitle>
-                    {selected === i && <Check className="h-4 w-4 text-neutral-900" />}
+                    {selected === i && <Check className="h-4 w-4 text-text-default" />}
                   </div>
                 </CardHeader>
                 <CardContent className="space-y-2 text-xs">
                   <div>
-                    <span className="text-muted-foreground">故事内核：</span>
+                    <span className="text-text-tertiary">故事内核：</span>
                     <span>{c.core}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">核心冲突：</span>
+                    <span className="text-text-tertiary">核心冲突：</span>
                     <span>{c.conflict}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">目标读者：</span>
+                    <span className="text-text-tertiary">目标读者：</span>
                     <span>{c.audience}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">情绪基调：</span>
+                    <span className="text-text-tertiary">情绪基调：</span>
                     <span>{c.mood}</span>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">参考作品：</span>
+                    <span className="text-text-tertiary">参考作品：</span>
                     <span>{c.reference}</span>
                   </div>
                 </CardContent>
@@ -221,7 +221,7 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
                   await updateProjectSynopsisSelected(projectId, summary);
                   window.dispatchEvent(new CustomEvent("pipeline-step-next"));
                 }}
-                className="bg-neutral-900 text-white hover:bg-neutral-800"
+                className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover"
               >
                 确认并进入下一步
               </Button>

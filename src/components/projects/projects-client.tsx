@@ -37,13 +37,15 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { StylePicker } from "@/components/style/style-picker";
+import type { StyleProfile } from "@/lib/ai/style";
 
 const GENRES = ["玄幻", "都市", "言情", "科幻", "悬疑", "历史", "武侠", "末世", "同人", "其他"];
 
 const modeInfo = {
-  PIPELINE: { label: "流水线", icon: Workflow, href: "pipeline" },
-  WORKBENCH: { label: "工作台", icon: PenLine, href: "editor" },
-  CHAT: { label: "对话共创", icon: MessageSquare, href: "chat" },
+  PIPELINE: { label: "流水线", icon: Workflow, query: "pipeline" },
+  WORKBENCH: { label: "工作台", icon: PenLine, query: "workbench" },
+  CHAT: { label: "对话共创", icon: MessageSquare, query: "chat" },
 } as const;
 
 export type ProjectItem = {
@@ -78,6 +80,7 @@ export function ProjectsClient({
   const [genre, setGenre] = useState("都市");
   const [mode, setMode] = useState<"PIPELINE" | "WORKBENCH" | "CHAT">("PIPELINE");
   const [synopsis, setSynopsis] = useState("");
+  const [styleProfile, setStyleProfile] = useState<StyleProfile | null>(null);
 
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault();
@@ -91,6 +94,9 @@ export function ProjectsClient({
     fd.set("genre", genre);
     fd.set("mode", mode);
     fd.set("synopsis", synopsis);
+    if (styleProfile) {
+      fd.set("styleProfile", JSON.stringify(styleProfile));
+    }
     const res = await createProjectAction(fd);
     setCreating(false);
     if (!res.ok) {
@@ -101,10 +107,13 @@ export function ProjectsClient({
     setCreateOpen(false);
     setTitle("");
     setSynopsis("");
-    router.push(`/${modeInfo[mode].href}/${res.projectId}`);
+    setStyleProfile(null);
+    router.push(`/project/${res.projectId}?view=${modeInfo[mode].query}`);
   }
 
-  function handleDelete() {
+  function handleDelete(e?: React.MouseEvent) {
+    // 阻止 AlertDialogAction 自动关闭对话框，等异步删除完成后再手动关闭
+    e?.preventDefault();
     if (!deleteId) return;
     startTransition(async () => {
       const res = await deleteProjectAction(deleteId);
@@ -112,7 +121,6 @@ export function ProjectsClient({
         toast({ title: "已删除", type: "success" });
         setProjects((prev) => prev.filter((p) => p.id !== deleteId));
         setDeleteId(null);
-        router.refresh();
       } else {
         toast({ title: "删除失败", description: res.error, type: "error" });
       }
@@ -121,22 +129,22 @@ export function ProjectsClient({
 
   return (
     <div className="container py-8">
-      <div className="bg-white rounded-2xl shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+      <div className="bg-bg-base-default rounded-2xl shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
         <div>
-          <h1 className="text-2xl font-bold">我的项目</h1>
-          <p className="text-sm text-muted-foreground mt-1">在所有模式间切换，数据自动同步</p>
+          <h1 className="text-2xl font-bold text-text-default">我的项目</h1>
+          <p className="text-sm text-text-tertiary mt-1">在所有模式间切换，数据自动同步</p>
         </div>
-        <Button onClick={() => setCreateOpen(true)} className="bg-neutral-900 text-white hover:bg-neutral-800 shrink-0">
+        <Button onClick={() => setCreateOpen(true)} className="shrink-0">
           <Plus className="h-4 w-4" />
           新建项目
         </Button>
       </div>
 
       {projects.length === 0 ? (
-        <Card className="rounded-2xl border-neutral-100 shadow-sm bg-white">
+        <Card className="rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default">
           <CardContent className="py-16 text-center">
-            <p className="text-muted-foreground mb-4">还没有项目，点击右上角&ldquo;新建项目&rdquo;开始创作</p>
-            <Button onClick={() => setCreateOpen(true)} className="bg-neutral-900 text-white hover:bg-neutral-800">
+            <p className="text-text-tertiary mb-4">还没有项目，点击右上角&ldquo;新建项目&rdquo;开始创作</p>
+            <Button onClick={() => setCreateOpen(true)}>
               <Plus className="h-4 w-4" />
               创建第一个项目
             </Button>
@@ -148,21 +156,21 @@ export function ProjectsClient({
             const mi = modeInfo[p.mode as keyof typeof modeInfo];
             const Icon = mi.icon;
             return (
-              <Card key={p.id} className="rounded-2xl border-neutral-100 shadow-sm hover:shadow-md transition-shadow group bg-white">
+              <Card key={p.id} className="rounded-2xl border-border-neutral-l1 shadow-sm hover:shadow-md transition-shadow group bg-bg-base-default">
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <Link
-                      href={`/${mi.href}/${p.id}`}
+                      href={`/project/${p.id}?view=${mi.query}`}
                       prefetch={true}
                       className="flex-1 min-w-0"
                     >
                       <div className="flex items-center gap-2 mb-1">
-                        <div className="h-7 w-7 rounded-lg bg-neutral-100 flex items-center justify-center shrink-0">
-                          <Icon className="h-3.5 w-3.5 text-neutral-700" />
+                        <div className="h-7 w-7 rounded-lg bg-bg-overlay-l1 flex items-center justify-center shrink-0">
+                          <Icon className="h-3.5 w-3.5 text-text-secondary" />
                         </div>
                         <CardTitle className="text-base truncate">{p.title}</CardTitle>
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-2 text-xs text-text-tertiary">
                         <span>{p.genre}</span>
                         <span>·</span>
                         <span>{mi.label}</span>
@@ -182,7 +190,7 @@ export function ProjectsClient({
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem
-                          className="text-destructive focus:text-destructive"
+                          className="text-status-error focus:text-status-error"
                           onClick={() => setDeleteId(p.id)}
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
@@ -193,10 +201,10 @@ export function ProjectsClient({
                   </div>
                 </CardHeader>
                 <CardContent>
-                  <p className="text-sm text-muted-foreground line-clamp-2 min-h-[2.5rem]">
+                  <p className="text-sm text-text-tertiary line-clamp-2 min-h-[2.5rem]">
                     {p.synopsis || "暂无简介"}
                   </p>
-                  <div className="flex items-center justify-between text-xs text-muted-foreground mt-3 pt-3 border-t">
+                  <div className="flex items-center justify-between text-xs text-text-tertiary mt-3 pt-3 border-t border-border-neutral-l1">
                     <span>{formatWordCount(p.wordCount)}</span>
                     <span>{formatDate(p.updatedAt)}</span>
                   </div>
@@ -209,15 +217,17 @@ export function ProjectsClient({
 
       {/* 新建项目对话框 */}
       <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-        <DialogContent className="max-w-lg rounded-2xl">
-          <DialogHeader>
-            <DialogTitle>新建项目</DialogTitle>
-            <DialogDescription>选择适合你的创作模式，后续可随时切换</DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleCreate} className="space-y-4">
+        <DialogContent className="sm:max-w-3xl max-w-[95vw] max-h-[90vh] overflow-y-auto rounded-2xl !p-0">
+          <div className="px-8 pt-7 pb-2">
+            <DialogHeader>
+              <DialogTitle>新建项目</DialogTitle>
+              <DialogDescription>选择适合你的创作模式，后续可随时切换</DialogDescription>
+            </DialogHeader>
+          </div>
+          <form onSubmit={handleCreate} className="space-y-5 px-8 pb-2">
             <div className="space-y-2">
               <Label>创作模式</Label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-3 gap-3">
                 {(["PIPELINE", "WORKBENCH", "CHAT"] as const).map((m) => {
                   const Icon = modeInfo[m].icon;
                   return (
@@ -225,25 +235,25 @@ export function ProjectsClient({
                       key={m}
                       type="button"
                       onClick={() => setMode(m)}
-                      className={`flex flex-col items-center gap-1 p-3 rounded-xl border text-xs transition-colors ${
+                      className={`flex flex-col items-center gap-2 p-4 rounded-xl border text-sm transition-colors ${
                         mode === m
-                          ? "border-neutral-900 bg-neutral-50 text-neutral-900"
-                          : "border-neutral-200 hover:bg-neutral-50"
+                          ? "border-border-neutral-l3 bg-bg-overlay-l1 text-text-default font-medium"
+                          : "border-border-neutral-l1 hover:bg-bg-overlay-l1 text-text-default"
                       }`}
                     >
-                      <Icon className="h-4 w-4" />
+                      <Icon className="h-5 w-5" />
                       <span className="font-medium">{modeInfo[m].label}</span>
                     </button>
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-text-tertiary leading-relaxed">
                 {mode === "PIPELINE" && "六步引导式创作，适合新手和首次创作"}
                 {mode === "WORKBENCH" && "TipTap 编辑器 + 行内 AI，适合专业作者"}
                 {mode === "CHAT" && "聊天式共创，零门槛，自动提取知识卡"}
               </p>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label htmlFor="title">小说标题</Label>
               <Input
                 id="title"
@@ -254,7 +264,7 @@ export function ProjectsClient({
                 maxLength={80}
               />
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label>题材</Label>
               <Select value={genre} onValueChange={setGenre}>
                 <SelectTrigger>
@@ -269,22 +279,26 @@ export function ProjectsClient({
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
+            <div className="space-y-1.5">
               <Label htmlFor="synopsis">简介（可选）</Label>
               <Textarea
                 id="synopsis"
                 value={synopsis}
                 onChange={(e) => setSynopsis(e.target.value)}
                 placeholder="一两句话描述你的故事"
-                rows={3}
+                rows={4}
                 maxLength={500}
               />
             </div>
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)} className="border-neutral-200 hover:bg-neutral-50">
+            <div className="space-y-2">
+              <Label>写作风格（可选）</Label>
+              <StylePicker value={styleProfile} onChange={setStyleProfile} />
+            </div>
+            <DialogFooter className="px-8 pb-7 pt-2">
+              <Button type="button" variant="outline" onClick={() => setCreateOpen(false)}>
                 取消
               </Button>
-              <Button type="submit" disabled={creating} className="bg-neutral-900 text-white hover:bg-neutral-800">
+              <Button type="submit" disabled={creating}>
                 {creating ? "创建中..." : "创建"}
               </Button>
             </DialogFooter>
@@ -306,9 +320,8 @@ export function ProjectsClient({
             <AlertDialogAction
               onClick={handleDelete}
               disabled={pending}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              删除
+              {pending ? "删除中..." : "删除"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

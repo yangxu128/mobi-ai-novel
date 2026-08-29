@@ -46,3 +46,10 @@ next-env.d.ts
 # editor
 .vscode/
 .idea/
+
+# 本地日志 / 临时产物 / 一次性脚本
+/*.log
+/*.dump
+/check-admin.mjs
+/scripts/list-users.cjs
+/dl_builtin_trae_work/

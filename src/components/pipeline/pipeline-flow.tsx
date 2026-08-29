@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, memo } from "react";
 import Link from "next/link";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -73,7 +73,7 @@ interface Props {
   characterSummary: string;
 }
 
-export function PipelineFlow({ project, worldSummary, characterSummary }: Props) {
+export function PipelineFlowImpl({ project, worldSummary, characterSummary }: Props) {
   const [step, setStep] = useState(project.currentStep || 1);
 
   // 监听子组件触发的 "next" 事件
@@ -105,24 +105,24 @@ export function PipelineFlow({ project, worldSummary, characterSummary }: Props)
               <div
                 className={`h-7 w-7 rounded-full flex items-center justify-center text-xs font-medium transition-colors ${
                   step > s.key
-                    ? "bg-neutral-900 text-white"
+                    ? "bg-bg-brand text-text-onbrand"
                     : step === s.key
-                    ? "bg-neutral-900 text-white ring-4 ring-neutral-200"
-                    : "bg-neutral-100 text-muted-foreground group-hover:bg-neutral-200"
+                    ? "bg-bg-brand text-text-onbrand ring-4 ring-border-neutral-l2"
+                    : "bg-bg-overlay-l1 text-text-tertiary group-hover:bg-bg-overlay-l2"
                 }`}
               >
                 {step > s.key ? <Check className="h-3.5 w-3.5" /> : s.key}
               </div>
               <div className="text-left hidden md:block">
-                <div className={`text-sm font-medium ${step === s.key ? "text-foreground" : "text-muted-foreground"}`}>
+                <div className={`text-sm font-medium ${step === s.key ? "text-text-default" : "text-text-tertiary"}`}>
                   {s.label}
                 </div>
-                <div className="text-xs text-muted-foreground hidden lg:block">{s.desc}</div>
+                <div className="text-xs text-text-tertiary hidden lg:block">{s.desc}</div>
               </div>
             </button>
             {i < STEPS.length - 1 && (
               <div
-                  className={`flex-1 h-px mx-2 ${step > s.key ? "bg-neutral-900" : "bg-neutral-200"}`}
+                  className={`flex-1 h-px mx-2 ${step > s.key ? "bg-bg-brand" : "bg-bg-overlay-l2"}`}
                 />
             )}
           </div>
@@ -169,28 +169,43 @@ export function PipelineFlow({ project, worldSummary, characterSummary }: Props)
       </div>
 
       {/* 底部步骤导航 */}
-      <div className="flex items-center justify-between border-t border-neutral-100 pt-3 shrink-0">
+      <div className="flex items-center justify-between border-t border-border-neutral-l1 pt-3 shrink-0">
         <Button
           variant="outline"
           disabled={step === 1}
           onClick={() => gotoStep(step - 1)}
-          className="border-neutral-200 hover:bg-neutral-50"
+          className="border-border-neutral-l2 hover:bg-bg-overlay-l1"
         >
           上一步
         </Button>
-        <span className="text-sm text-muted-foreground">
+        <span className="text-sm text-text-tertiary">
           第 {step} / 6 步
         </span>
         {step < 6 ? (
-          <Button onClick={() => gotoStep(step + 1)} className="bg-neutral-900 text-white hover:bg-neutral-800">
+          <Button onClick={() => gotoStep(step + 1)} className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">
             跳到下一步
           </Button>
         ) : (
-          <Button asChild variant="outline" className="border-neutral-200 hover:bg-neutral-50">
-            <Link href={`/editor/${project.id}`}>前往工作台继续编辑</Link>
+          <Button asChild variant="outline" className="border-border-neutral-l2 hover:bg-bg-overlay-l1">
+            <Link href={`/project/${project.id}?view=workbench`}>前往工作台继续编辑</Link>
           </Button>
         )}
       </div>
     </div>
   );
 }
+
+// memo 包裹：project 数据变化时重渲染（chapters content 等可能被保存更新）
+export const PipelineFlow = memo(PipelineFlowImpl, (prev, next) => {
+  return (
+    prev.project.id === next.project.id &&
+    prev.worldSummary === next.worldSummary &&
+    prev.characterSummary === next.characterSummary &&
+    prev.project.chapters.length === next.project.chapters.length &&
+    prev.project.chapters.every((c, i) =>
+      c.id === next.project.chapters[i].id &&
+      c.content === next.project.chapters[i].content &&
+      c.wordCount === next.project.chapters[i].wordCount
+    )
+  );
+});

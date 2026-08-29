@@ -38,32 +38,18 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           email: user.email,
           name: user.name,
           image: user.avatar,
+          role: user.role,
         };
       },
     }),
   ],
   callbacks: {
-    // 保留 authConfig 中的 authorized 回调（middleware 用）
+    // jwt/session/authorized 回调均在 authConfig 中定义，
+    // 这里不再重复定义，避免覆盖 authConfig 中的 Edge 兼容版本。
+    // authorized 回调用于 middleware 路由守卫
     authorized: authConfig.callbacks.authorized,
-    async jwt({ token, user }) {
-      if (user) {
-        token.id = user.id;
-        // 仅在登录瞬间查一次角色，写入 token；后续请求直接读 token，不查库
-        const dbUser = await prisma.user.findUnique({
-          where: { id: user.id as string },
-          select: { role: true },
-        });
-        token.role = dbUser?.role ?? "FREE";
-      }
-      return token;
-    },
-    async session({ session, token }) {
-      if (session.user) {
-        session.user.id = token.id as string;
-        session.user.role = token.role as string;
-      }
-      return session;
-    },
+    jwt: authConfig.callbacks.jwt,
+    session: authConfig.callbacks.session,
   },
 });
 
