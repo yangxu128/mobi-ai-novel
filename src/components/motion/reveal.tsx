@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from "react";
 
 /**
- * 滚动渐显容器：进入视口时淡入 + 上浮
+ * 滚动渐显容器：进入视口时淡入 + 上浮。
+ * blur=true 时叠加 SkillHub 式「模糊→清晰」效果（标题进入视口从虚化变锐利）。
  * - 仅触发一次，触发后断开观察器
  * - delay 用于同屏多元素的交错入场
  * - prefers-reduced-motion 下由全局样式将过渡时长压为 0，直接显示
@@ -12,6 +13,7 @@ export function Reveal({
   children,
   delay = 0,
   y = 24,
+  blur = false,
   className = "",
 }: {
   children: ReactNode;
@@ -19,6 +21,8 @@ export function Reveal({
   delay?: number;
   /** 初始下移距离（像素） */
   y?: number;
+  /** 进入视口时从模糊到清晰 */
+  blur?: boolean;
   className?: string;
 }) {
   const ref = useRef<HTMLDivElement>(null);
@@ -47,7 +51,7 @@ export function Reveal({
   return (
     <div
       ref={ref}
-      className={`reveal ${visible ? "reveal-in" : ""} ${className}`}
+      className={`reveal ${blur ? "reveal-blur" : ""} ${visible ? "reveal-in" : ""} ${className}`}
       style={{ "--reveal-delay": `${delay}ms`, "--reveal-y": `${y}px` } as CSSProperties}
     >
       {children}
