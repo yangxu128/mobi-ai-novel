@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { AdminUsersClient } from "@/components/admin/admin-users-client";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { Users } from "lucide-react";
 
 // 注：session 校验已下沉到 admin/layout.tsx
 export default async function AdminUsersPage({
@@ -45,8 +47,13 @@ export default async function AdminUsersPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-1 text-text-default">用户管理</h1>
-      <p className="text-sm text-text-secondary mb-6">共 {total} 个用户</p>
+      <AdminPageHeader
+        icon={Users}
+        chipClass="chip-indigo"
+        title="用户管理"
+        description="管理平台注册用户、角色与订阅"
+        meta={`共 ${total} 个用户`}
+      />
 
       <AdminUsersClient
         users={users.map((u) => ({

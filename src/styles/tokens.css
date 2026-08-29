@@ -508,3 +508,24 @@
 
   /* --bg-invert 系列保持深灰（tooltip 等深色浮层使用） */
 }
+
+/* ============================================================
+   2026-08 界面升级：渐变、辉光与分层阴影
+   在暖橙品牌色之上增加高级感：主按钮辉光、卡片悬浮、
+   Hero 暖色光晕、渐变文字。仅新增令牌，不改动既有值。
+   ============================================================ */
+:root {
+  /* 渐变 */
+  --gradient-brand: linear-gradient(135deg, #FF9A3D 0%, #FF7A00 52%, #F05E00 100%);
+  --gradient-brand-hover: linear-gradient(135deg, #FFA752 0%, #FF8F26 52%, #FF6A00 100%);
+  --gradient-hero-wash: radial-gradient(640px 300px at 18% -12%, rgba(255, 122, 0, 0.10), transparent 62%),
+    radial-gradient(560px 280px at 86% -6%, rgba(242, 169, 12, 0.09), transparent 58%);
+  --gradient-page-wash: radial-gradient(900px 460px at 50% -180px, rgba(255, 122, 0, 0.07), transparent 65%);
+
+  /* 分层阴影：静置 → 悬浮 → 主按钮辉光 */
+  --shadow-card: 0 1px 2px rgba(26, 26, 26, 0.04), 0 4px 16px rgba(26, 26, 26, 0.05);
+  --shadow-card-hover: 0 2px 4px rgba(26, 26, 26, 0.05), 0 18px 44px rgba(26, 26, 26, 0.12);
+  --shadow-menu: 0 4px 12px rgba(26, 26, 26, 0.06), 0 20px 48px rgba(26, 26, 26, 0.12);
+  --shadow-glow: 0 2px 6px rgba(240, 94, 0, 0.20), 0 10px 28px rgba(255, 122, 0, 0.32);
+  --shadow-glow-hover: 0 4px 10px rgba(240, 94, 0, 0.24), 0 14px 36px rgba(255, 122, 0, 0.40);
+}

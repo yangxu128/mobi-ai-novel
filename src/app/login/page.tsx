@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Github } from "lucide-react";
+import { Github, PenLine } from "lucide-react";
 
 function LoginForm() {
   const params = useSearchParams();
@@ -38,9 +38,12 @@ function LoginForm() {
   }
 
   return (
-    <Card className="w-full max-w-md">
-      <CardHeader>
-        <CardTitle>登录墨笔</CardTitle>
+    <Card className="w-full max-w-md shadow-[var(--shadow-card-hover)] border-border-neutral-l1">
+      <CardHeader className="items-center text-center">
+        <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl brand-gradient text-text-onbrand shadow-[var(--shadow-glow)]">
+          <PenLine className="h-6 w-6" />
+        </div>
+        <CardTitle className="text-xl">登录墨笔</CardTitle>
         <CardDescription>输入你的账号信息继续创作</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -103,7 +106,7 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="container py-12 flex items-center justify-center">
+    <div className="container py-12 flex items-center justify-center page-wash">
       <Suspense fallback={<div className="w-full max-w-md h-96 animate-pulse rounded-2xl bg-bg-overlay-l1" />}>
         <LoginForm />
       </Suspense>

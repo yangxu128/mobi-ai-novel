@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { AdminProjectsClient } from "@/components/admin/admin-projects-client";
+import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { FolderOpen } from "lucide-react";
 
 // 注：session 校验已下沉到 admin/layout.tsx
 export default async function AdminProjectsPage({
@@ -47,8 +49,13 @@ export default async function AdminProjectsPage({
 
   return (
     <div>
-      <h1 className="text-2xl font-bold mb-1 text-text-default">项目管理</h1>
-      <p className="text-sm text-text-secondary mb-6">共 {total} 个项目</p>
+      <AdminPageHeader
+        icon={FolderOpen}
+        chipClass="chip-amber"
+        title="项目管理"
+        description="全平台小说项目总览与治理"
+        meta={`共 ${total} 个项目`}
+      />
 
       <AdminProjectsClient
         projects={projects.map((p) => ({

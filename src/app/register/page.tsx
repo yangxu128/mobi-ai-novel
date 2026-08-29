@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { registerAction } from "@/actions/auth";
 import { toast } from "@/components/ui/toast";
+import { PenLine } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -32,10 +33,13 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="container py-12 flex items-center justify-center">
-      <Card className="w-full max-w-md">
-        <CardHeader>
-          <CardTitle>免费注册</CardTitle>
+    <div className="container py-12 flex items-center justify-center page-wash">
+      <Card className="w-full max-w-md shadow-[var(--shadow-card-hover)] border-border-neutral-l1">
+        <CardHeader className="items-center text-center">
+          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl brand-gradient text-text-onbrand shadow-[var(--shadow-glow)]">
+            <PenLine className="h-6 w-6" />
+          </div>
+          <CardTitle className="text-xl">免费注册</CardTitle>
           <CardDescription>1 个项目 + 每日 500 字 AI 续写，永久免费</CardDescription>
         </CardHeader>
         <CardContent>

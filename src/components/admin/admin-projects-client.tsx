@@ -101,20 +101,20 @@ export function AdminProjectsClient({
         <Button type="submit" variant="outline" size="sm">搜索</Button>
       </form>
 
-      <div className="rounded-lg border border-border-neutral-l1 overflow-hidden">
+      <div className="rounded-2xl border border-border-neutral-l1 bg-bg-base-default shadow-[var(--shadow-card)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-bg-overlay-l1">
-              <tr className="text-left text-text-default">
-                <th className="px-4 py-3 font-medium">项目</th>
-                <th className="px-4 py-3 font-medium">作者</th>
-                <th className="px-4 py-3 font-medium">类型</th>
-                <th className="px-4 py-3 font-medium">模式</th>
-                <th className="px-4 py-3 font-medium">状态</th>
-                <th className="px-4 py-3 font-medium text-center">章节</th>
-                <th className="px-4 py-3 font-medium text-center">字数</th>
-                <th className="px-4 py-3 font-medium">更新时间</th>
-                <th className="px-4 py-3 font-medium text-right">操作</th>
+            <thead className="bg-bg-overlay-l1/70">
+              <tr className="text-left text-xs uppercase tracking-wider text-text-tertiary">
+                <th className="px-5 py-3.5 font-medium">项目</th>
+                <th className="px-5 py-3.5 font-medium">作者</th>
+                <th className="px-5 py-3.5 font-medium">类型</th>
+                <th className="px-5 py-3.5 font-medium">模式</th>
+                <th className="px-5 py-3.5 font-medium">状态</th>
+                <th className="px-5 py-3.5 font-medium text-center">章节</th>
+                <th className="px-5 py-3.5 font-medium text-center">字数</th>
+                <th className="px-5 py-3.5 font-medium">更新时间</th>
+                <th className="px-5 py-3.5 font-medium text-right">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-neutral-l1">
@@ -126,31 +126,31 @@ export function AdminProjectsClient({
                 </tr>
               ) : (
                 projects.map((p) => (
-                  <tr key={p.id} className="hover:bg-bg-overlay-l1">
-                    <td className="px-4 py-3">
+                  <tr key={p.id} className="transition-colors hover:bg-bg-overlay-l1/60">
+                    <td className="px-5 py-3.5">
                       <div className="font-medium text-text-default truncate max-w-48">{p.title}</div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3.5">
                       <div className="text-xs text-text-default">{p.user.name || "未命名"}</div>
                       <div className="text-xs text-text-tertiary">{p.user.email}</div>
                     </td>
-                    <td className="px-4 py-3 text-text-tertiary">{p.genre}</td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3.5 text-text-tertiary">{p.genre}</td>
+                    <td className="px-5 py-3.5">
                       <Badge variant="outline" className="text-xs">
                         {modeLabels[p.mode] || p.mode}
                       </Badge>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3.5">
                       <span className={`inline-flex px-2 py-0.5 rounded text-xs ${statusColors[p.status] || ""}`}>
                         {p.status}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-center text-text-default">{p._count.chapters}</td>
-                    <td className="px-4 py-3 text-center text-text-default">{p.wordCount.toLocaleString()}</td>
-                    <td className="px-4 py-3 text-text-tertiary text-xs">
+                    <td className="num px-5 py-3.5 text-center text-text-default">{p._count.chapters}</td>
+                    <td className="num px-5 py-3.5 text-center text-text-default">{p.wordCount.toLocaleString()}</td>
+                    <td className="px-5 py-3.5 text-text-tertiary text-xs">
                       {new Date(p.updatedAt).toLocaleDateString("zh-CN")}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-5 py-3.5 text-right">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="sm" disabled={pending} className="text-status-error hover:text-status-error">

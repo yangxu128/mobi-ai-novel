@@ -29,7 +29,7 @@ export function AppHeader() {
     <header className="border-b border-border-neutral-l1 bg-bg-base-default/95 backdrop-blur sticky top-0 z-40">
       <div className="container flex h-14 items-center justify-between">
         <Link href={session?.user ? "/projects" : "/"} className="flex items-center gap-2" prefetch>
-          <div className="h-8 w-8 rounded-lg bg-bg-brand flex items-center justify-center">
+          <div className="brand-gradient flex h-8 w-8 items-center justify-center rounded-lg shadow-[var(--shadow-glow)]">
             <PenLine className="h-4 w-4 text-text-onbrand" />
           </div>
           <span className="font-semibold text-lg text-text-default">墨笔</span>

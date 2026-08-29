@@ -43,9 +43,9 @@ import type { StyleProfile } from "@/lib/ai/style";
 const GENRES = ["玄幻", "都市", "言情", "科幻", "悬疑", "历史", "武侠", "末世", "同人", "其他"];
 
 const modeInfo = {
-  PIPELINE: { label: "流水线", icon: Workflow, query: "pipeline" },
-  WORKBENCH: { label: "工作台", icon: PenLine, query: "workbench" },
-  CHAT: { label: "对话共创", icon: MessageSquare, query: "chat" },
+  PIPELINE: { label: "流水线", icon: Workflow, query: "pipeline", chip: "chip-amber" },
+  WORKBENCH: { label: "工作台", icon: PenLine, query: "workbench", chip: "chip-indigo" },
+  CHAT: { label: "对话共创", icon: MessageSquare, query: "chat", chip: "chip-violet" },
 } as const;
 
 export type ProjectItem = {
@@ -156,7 +156,10 @@ export function ProjectsClient({
             const mi = modeInfo[p.mode as keyof typeof modeInfo];
             const Icon = mi.icon;
             return (
-              <Card key={p.id} className="rounded-2xl border-border-neutral-l1 shadow-sm hover:shadow-md transition-shadow group bg-bg-base-default">
+              <Card
+                key={p.id}
+                className="rounded-2xl border-border-neutral-l1 shadow-[var(--shadow-card)] card-lift group bg-bg-base-default"
+              >
                 <CardHeader className="pb-3">
                   <div className="flex items-start justify-between">
                     <Link
@@ -164,11 +167,13 @@ export function ProjectsClient({
                       prefetch={true}
                       className="flex-1 min-w-0"
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <div className="h-7 w-7 rounded-lg bg-bg-overlay-l1 flex items-center justify-center shrink-0">
-                          <Icon className="h-3.5 w-3.5 text-text-secondary" />
+                      <div className="flex items-center gap-2.5 mb-1.5">
+                        <div className={`h-8 w-8 rounded-lg flex items-center justify-center shrink-0 ${mi.chip}`}>
+                          <Icon className="h-4 w-4" />
                         </div>
-                        <CardTitle className="text-base truncate">{p.title}</CardTitle>
+                        <CardTitle className="text-base truncate group-hover:text-text-brand transition-colors">
+                          {p.title}
+                        </CardTitle>
                       </div>
                       <div className="flex items-center gap-2 text-xs text-text-tertiary">
                         <span>{p.genre}</span>
@@ -181,6 +186,14 @@ export function ProjectsClient({
                           </>
                         )}
                       </div>
+                      {p.mode === "PIPELINE" && (
+                        <div className="mt-2.5 h-1 w-full overflow-hidden rounded-full bg-bg-overlay-l2">
+                          <div
+                            className="h-full rounded-full brand-gradient"
+                            style={{ width: `${Math.round((p.currentStep / 6) * 100)}%` }}
+                          />
+                        </div>
+                      )}
                     </Link>
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
@@ -205,7 +218,7 @@ export function ProjectsClient({
                     {p.synopsis || "暂无简介"}
                   </p>
                   <div className="flex items-center justify-between text-xs text-text-tertiary mt-3 pt-3 border-t border-border-neutral-l1">
-                    <span>{formatWordCount(p.wordCount)}</span>
+                    <span className="num">{formatWordCount(p.wordCount)}</span>
                     <span>{formatDate(p.updatedAt)}</span>
                   </div>
                 </CardContent>

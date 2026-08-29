@@ -44,7 +44,6 @@ const roleColors: Record<string, string> = {
   BASIC: "bg-status-info/10 text-status-info",
   FREE: "bg-bg-overlay-l1 text-text-secondary",
 };
-
 export function AdminUsersClient({
   users,
   page,
@@ -120,35 +119,35 @@ export function AdminUsersClient({
       </form>
 
       {/* 表格 */}
-      <div className="rounded-lg border border-border-neutral-l1 overflow-hidden">
+      <div className="rounded-2xl border border-border-neutral-l1 bg-bg-base-default shadow-[var(--shadow-card)] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="bg-bg-overlay-l1">
-              <tr className="text-left text-text-default">
-                <th className="px-4 py-3 font-medium">用户</th>
-                <th className="px-4 py-3 font-medium">角色</th>
-                <th className="px-4 py-3 font-medium">订阅</th>
-                <th className="px-4 py-3 font-medium text-center">项目数</th>
-                <th className="px-4 py-3 font-medium text-center">AI 调用</th>
-                <th className="px-4 py-3 font-medium">注册时间</th>
-                <th className="px-4 py-3 font-medium text-right">操作</th>
+            <thead className="bg-bg-overlay-l1/70">
+              <tr className="text-left text-xs uppercase tracking-wider text-text-tertiary">
+                <th className="px-5 py-3.5 font-medium">用户</th>
+                <th className="px-5 py-3.5 font-medium">角色</th>
+                <th className="px-5 py-3.5 font-medium">订阅</th>
+                <th className="px-5 py-3.5 font-medium text-center">项目数</th>
+                <th className="px-5 py-3.5 font-medium text-center">AI 调用</th>
+                <th className="px-5 py-3.5 font-medium">注册时间</th>
+                <th className="px-5 py-3.5 font-medium text-right">操作</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border-neutral-l1">
               {users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="px-4 py-12 text-center text-text-tertiary">
+                  <td colSpan={7} className="px-5 py-16 text-center text-text-tertiary">
                     没有找到用户
                   </td>
                 </tr>
               ) : (
                 users.map((u) => (
-                  <tr key={u.id} className="hover:bg-bg-overlay-l1">
-                    <td className="px-4 py-3">
+                  <tr key={u.id} className="transition-colors hover:bg-bg-overlay-l1/60">
+                    <td className="px-5 py-3.5">
                       <div className="font-medium text-text-default">{u.name || "未命名"}</div>
                       <div className="text-xs text-text-tertiary">{u.email}</div>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3.5">
                       <Select
                         value={u.role}
                         onValueChange={(v) => onRoleChange(u.id, v)}
@@ -169,7 +168,7 @@ export function AdminUsersClient({
                         </SelectContent>
                       </Select>
                     </td>
-                    <td className="px-4 py-3">
+                    <td className="px-5 py-3.5">
                       <Select
                         value={u.subscription?.plan || "FREE"}
                         onValueChange={(v) => onPlanChange(u.id, v)}
@@ -185,12 +184,12 @@ export function AdminUsersClient({
                         </SelectContent>
                       </Select>
                     </td>
-                    <td className="px-4 py-3 text-center text-text-default">{u._count.projects}</td>
-                    <td className="px-4 py-3 text-center text-text-default">{u._count.aiUsageLogs}</td>
-                    <td className="px-4 py-3 text-text-tertiary">
+                    <td className="num px-5 py-3.5 text-center text-text-default">{u._count.projects}</td>
+                    <td className="num px-5 py-3.5 text-center text-text-default">{u._count.aiUsageLogs}</td>
+                    <td className="px-5 py-3.5 text-text-tertiary">
                       {new Date(u.createdAt).toLocaleDateString("zh-CN")}
                     </td>
-                    <td className="px-4 py-3 text-right">
+                    <td className="px-5 py-3.5 text-right">
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button variant="ghost" size="sm" disabled={pending} className="text-status-error hover:text-status-error">
