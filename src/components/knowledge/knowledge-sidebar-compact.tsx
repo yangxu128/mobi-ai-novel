@@ -7,14 +7,16 @@
 
 import { memo } from "react";
 import type { WorldSettingView, CharacterView } from "@/types/knowledge";
-import { categoryLabel, roleLabel } from "@/lib/knowledge/labels";
+import { getCategoryLabel, roleLabel } from "@/lib/knowledge/labels";
 
 export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
   worldSettings,
   characters,
+  genre,
 }: {
   worldSettings: WorldSettingView[];
   characters: CharacterView[];
+  genre?: string | null;
 }) {
   return (
     <div className="p-3 h-full overflow-y-auto">
@@ -29,7 +31,11 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
               <div key={w.id} className="mb-2 p-2 rounded-md bg-bg-overlay-l1 border border-border-neutral-l1">
                 <div className="flex items-center gap-1 mb-0.5">
                   <span className="text-[10px] text-text-tertiary">
-                    {categoryLabel[w.category] || w.category}
+                    {getCategoryLabel(
+                      w.category,
+                      genre,
+                      `${w.title} ${typeof w.content === "string" ? w.content : ""}`
+                    )}
                   </span>
                   <span className="text-xs font-medium truncate">{w.title}</span>
                 </div>

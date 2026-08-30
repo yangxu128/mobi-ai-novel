@@ -16,6 +16,8 @@ export interface AIMessage {
 export interface AIStreamChunk {
   delta: string;
   done?: boolean;
+  /** DeepSeek 等推理模型的思考内容（reasoning_content），非正文 */
+  reasoning?: boolean;
 }
 
 let client: OpenAI | null = null;
@@ -66,6 +68,8 @@ export async function* streamChat(opts: {
   temperature?: number;
   maxTokens?: number;
   signal?: AbortSignal;
+  /** DeepSeek v4 等推理模型：disabled 可关闭思考，省 token 且大幅提速 */
+  thinking?: "enabled" | "disabled";
 }): AsyncGenerator<AIStreamChunk, void, unknown> {
   const openai = getClient();
   const model = opts.model || DEFAULT_MODEL;
@@ -73,21 +77,35 @@ export async function* streamChat(opts: {
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const stream = await openai.chat.completions.create(
-        {
-          model,
-          messages: opts.messages,
-          temperature: opts.temperature ?? 0.8,
-          max_tokens: opts.maxTokens,
-          stream: true,
-        },
+      const body = {
+        model,
+        messages: opts.messages,
+        temperature: opts.temperature ?? 0.8,
+        max_tokens: opts.maxTokens,
+        stream: true,
+        ...(opts.thinking ? { thinking: { type: opts.thinking } } : {}),
+      };
+      const stream = (await openai.chat.completions.create(
+        body as unknown as Parameters<typeof openai.chat.completions.create>[0],
         { signal: opts.signal }
-      );
+      )) as unknown as AsyncIterable<{
+        choices: Array<{
+          delta: { content?: string; reasoning_content?: string };
+          finish_reason: string | null;
+        }>;
+      }>;
 
       for await (const chunk of stream) {
-        const delta = chunk.choices[0]?.delta?.content || "";
-        if (delta) {
-          yield { delta };
+        // 推理模型（DeepSeek v4 等）会先输出大量 reasoning_content 思考内容，
+        // 必须转发给客户端作为"仍在生成"的心跳，否则前端会一直转圈
+        const delta = chunk.choices[0]?.delta || {};
+        const reasoning = (delta as { reasoning_content?: string }).reasoning_content || "";
+        const content = delta.content || "";
+        if (reasoning) {
+          yield { delta: reasoning, reasoning: true };
+        }
+        if (content) {
+          yield { delta: content };
         }
       }
       yield { delta: "", done: true };

@@ -264,6 +264,7 @@ enum AIAction {
   worldbuild
   character
   outline
+  outlineAppend
   expand
   polish
   chat

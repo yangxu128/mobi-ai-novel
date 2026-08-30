@@ -297,7 +297,7 @@ export function ModeCarousel() {
                       </ul>
                       <Link
                         href={m.href}
-                        className="mt-6 inline-flex items-center gap-1.5 rounded-full bg-neutral-900 px-5 py-2.5 text-sm text-white transition-colors hover:bg-neutral-700"
+                        className="btn-cta mt-6 inline-flex items-center gap-1.5 rounded-full bg-neutral-900 px-5 py-2.5 text-sm text-white hover:bg-neutral-700"
                       >
                         {m.cta}
                         <ArrowRight className="h-3.5 w-3.5" />

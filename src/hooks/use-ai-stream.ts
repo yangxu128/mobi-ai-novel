@@ -15,6 +15,7 @@ interface UseAIStreamOptions {
 export function useAIStream(opts: UseAIStreamOptions = {}) {
   const [text, setText] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
+  const [thinking, setThinking] = useState(0); // 推理模型思考字数
   const [error, setError] = useState<string | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const fullTextRef = useRef("");
@@ -23,6 +24,7 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
     async (payload: { action: string; projectId?: string; payload: Record<string, unknown> }) => {
       setText("");
       setError(null);
+      setThinking(0);
       fullTextRef.current = "";
       setIsStreaming(true);
 
@@ -45,7 +47,14 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
         }
         if (resp.status === 429) {
           const data = await resp.json().catch(() => ({}));
-          const msg = `今日配额已用尽（${data.used || 0}/${data.limit || 0}）`;
+          // 区分「配额用尽」与「请求过于频繁」：服务端配额 429 返回
+          // error === "QUOTA_EXCEEDED"，频次限流 429 返回具体文案
+          const msg =
+            data.error === "QUOTA_EXCEEDED"
+              ? `今日免费额度已用尽（${data.used || 0}/${data.limit || 0} tokens），明天 0 点重置，或升级套餐`
+              : typeof data.error === "string"
+                ? data.error
+                : "请求过于频繁，请稍后再试";
           setError(msg);
           opts.onError?.(msg);
           setIsStreaming(false);
@@ -99,6 +108,9 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
               if (event === "delta" && data.text) {
                 fullTextRef.current += data.text;
                 setText(fullTextRef.current);
+              } else if (event === "reasoning" && data.text) {
+                // 推理模型思考内容：仅累计字数用于"思考中"反馈
+                setThinking((n) => n + data.text.length);
               } else if (event === "error") {
                 setError(data.message || "生成失败");
                 opts.onError?.(data.message || "生成失败");
@@ -131,9 +143,10 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
 
   const reset = useCallback(() => {
     setText("");
+    setThinking(0);
     fullTextRef.current = "";
     setError(null);
   }, []);
 
-  return { text, isStreaming, error, generate, stop, reset };
+  return { text, isStreaming, thinking, error, generate, stop, reset };
 }

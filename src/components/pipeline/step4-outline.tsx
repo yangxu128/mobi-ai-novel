@@ -48,7 +48,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
   const [items, setItems] = useState<OutlineItem[]>([]);
   const [template, setTemplate] = useState("三幕式");
   const modeRef = useRef<"generate" | "append">("generate");
-  const { generate, isStreaming, text, error, stop } = useAIStream({
+  const { generate, isStreaming, thinking, text, error, stop } = useAIStream({
     onDone: (fullText) => {
       if (modeRef.current !== "append") return;
       const appended = tryParse(fullText);
@@ -85,16 +85,77 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
     }
   }, [existing, items.length]);
 
+  /**
+   * 修复模型常见 JSON 错误：把 "foreshadowing":"..."（或其他字段）误写成
+   * plotPoints 数组里的一个元素（"xx","字段":"yy" 形式，属非法 JSON）。
+   * 遍历字符跟踪容器栈：数组内元素位置出现 "字段": 值 时，用 ] 提前闭合
+   * 数组使其成为对象字段；修复后悬空的冗余闭合符直接跳过。
+   */
+  function repairMisplacedField(src: string): string {
+    let out = "";
+    let inStr = false;
+    let esc = false;
+    const stack: string[] = [];
+    let i = 0;
+    while (i < src.length) {
+      const ch = src[i];
+      if (inStr) {
+        out += ch;
+        if (esc) esc = false;
+        else if (ch === "\\") esc = true;
+        else if (ch === '"') inStr = false;
+        i++;
+        continue;
+      }
+      if (ch === '"') {
+        inStr = true;
+        out += ch;
+        i++;
+        continue;
+      }
+      if (ch === "[" || ch === "{") {
+        stack.push(ch);
+        out += ch;
+        i++;
+        continue;
+      }
+      if (ch === "]" || ch === "}") {
+        const top = stack[stack.length - 1];
+        const expected = ch === "]" ? "[" : "{";
+        if (top === expected) {
+          stack.pop();
+          out += ch;
+        }
+        i++;
+        continue;
+      }
+      if (ch === ",") {
+        const rest = src.slice(i + 1);
+        const m = rest.match(/^\s*"[A-Za-z_\u4e00-\u9fa5]+"\s*:/);
+        const top = stack[stack.length - 1];
+        if (m && top === "[") {
+          out += "],";
+          stack.pop();
+          i++;
+          continue;
+        }
+      }
+      out += ch;
+      i++;
+    }
+    return out;
+  }
+
   function tryParse(raw: string): OutlineItem[] | null {
     let arr: unknown = null;
     try {
-      const cleaned = raw.replace(/```json|```/g, "").trim();
+      const cleaned = repairMisplacedField(raw.replace(/```json|```/g, "").trim());
       arr = JSON.parse(cleaned);
     } catch {
       const m = raw.match(/\[[\s\S]*\]/);
       if (m) {
         try {
-          arr = JSON.parse(m[0]);
+          arr = JSON.parse(repairMisplacedField(m[0]));
         } catch {
           arr = null;
         }
@@ -236,7 +297,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
             </div>
             <Button onClick={onGenerate} disabled={isStreaming} className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover">
               {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-              {isStreaming ? "生成中..." : "AI 生成大纲"}
+              {isStreaming ? (thinking > 0 ? `思考中 ${thinking} 字...` : "生成中...") : "AI 生成大纲"}
             </Button>
             {items.length > 0 && (
               <Button
@@ -246,7 +307,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
                 className="border-border-neutral-l2 hover:bg-bg-overlay-l1"
               >
                 {isStreaming ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
-                {isStreaming ? "生成中..." : "继续生成"}
+                {isStreaming ? (thinking > 0 ? `思考中 ${thinking} 字...` : "生成中...") : "继续生成"}
               </Button>
             )}
             {isStreaming && (

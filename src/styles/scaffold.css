@@ -18,7 +18,10 @@ html, body {
 
 img, svg, video, canvas { max-width: 100%; }
 a { color: var(--text-default); text-decoration: none; }
-a:hover { color: var(--text-default); }
+/* 悬停不改链接颜色：a:hover 的伪类优先级(0,1,1)会压过按钮自身的
+   文字色类(0,1,0)，导致黑色胶囊按钮悬停时白字变黑。
+   需要悬停变色的文字链接应显式写 hover:text-* 工具类。 */
+a:hover { text-decoration: none; }
 hr { border: 0; border-top: 1px solid var(--border-neutral-l1); margin: var(--spacer-24) 0; }
 
 /* Section / heading helpers */

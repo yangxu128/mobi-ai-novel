@@ -12,7 +12,9 @@ type EnsureResult =
   | { ok: true; user: { id: string; email: string; name?: string | null; role: string } }
   | { ok: false; error: string };
 
-type ActionResult = { ok: true } | { ok: false; error: string };
+type ActionResult =
+  | { ok: true; id?: string }
+  | { ok: false; error: string };
 
 async function ensureProjectOwner(projectId: string): Promise<EnsureResult> {
   const user = await getCurrentUser();
@@ -44,8 +46,10 @@ export async function saveWorldSettingAction(opts: {
       where: { id: opts.id },
       data: { title: opts.title, category: opts.category, content: opts.content as object },
     });
+    revalidatePath(`/project/${opts.projectId}`);
+    return { ok: true, id: opts.id };
   } else {
-    await prisma.worldSetting.create({
+    const ws = await prisma.worldSetting.create({
       data: {
         projectId: opts.projectId,
         title: opts.title,
@@ -53,9 +57,9 @@ export async function saveWorldSettingAction(opts: {
         content: opts.content as object,
       },
     });
+    revalidatePath(`/project/${opts.projectId}`);
+    return { ok: true, id: ws.id };
   }
-  revalidatePath(`/project/${opts.projectId}`);
-  return { ok: true };
 }
 
 export async function deleteWorldSettingAction(id: string) {
@@ -108,8 +112,10 @@ export async function saveCharacterAction(opts: {
         relationships: (opts.relationships as object) || [],
       },
     });
+    revalidatePath(`/project/${opts.projectId}`);
+    return { ok: true, id: opts.id };
   } else {
-    await prisma.character.create({
+    const ch = await prisma.character.create({
       data: {
         projectId: opts.projectId,
         name: opts.name,
@@ -122,9 +128,9 @@ export async function saveCharacterAction(opts: {
         relationships: (opts.relationships as object) || [],
       },
     });
+    revalidatePath(`/project/${opts.projectId}`);
+    return { ok: true, id: ch.id };
   }
-  revalidatePath(`/project/${opts.projectId}`);
-  return { ok: true };
 }
 
 export async function deleteCharacterAction(id: string) {

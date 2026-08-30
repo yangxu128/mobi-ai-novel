@@ -226,15 +226,6 @@ export async function POST(req: NextRequest) {
 
   const userId = session.user.id;
 
-  // 限流：每用户每分钟最多 15 次 AI 请求
-  const rl = rateLimit(userId, 15, 60_000);
-  if (!rl.ok) {
-    return new Response(
-      JSON.stringify({ error: "请求过于频繁，请稍后再试" }),
-      { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "60" } }
-    );
-  }
-
   const body = await req.json().catch(() => ({}));
   const { action, projectId, payload } = body as {
     action: string;
@@ -249,7 +240,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 配额检查
+  // 配额检查（管理员 unlimited → 同时跳过下面的频次限流）
   const quota = await checkQuota(userId);
   if (!quota.ok) {
     return new Response(
@@ -260,6 +251,17 @@ export async function POST(req: NextRequest) {
       }),
       { status: 429, headers: { "Content-Type": "application/json" } }
     );
+  }
+
+  // 限流：每用户每分钟最多 15 次 AI 请求（管理员不限量，跳过）
+  if (!quota.unlimited) {
+    const rl = rateLimit(userId, 15, 60_000);
+    if (!rl.ok) {
+      return new Response(
+        JSON.stringify({ error: "请求过于频繁，请稍后再试" }),
+        { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "60" } }
+      );
+    }
   }
 
   // 解析项目级模型：有 projectId 时读项目配置，否则回退到 DEFAULT_MODEL
@@ -290,6 +292,7 @@ export async function POST(req: NextRequest) {
   req.signal.addEventListener("abort", () => abort.abort());
 
   let completionText = "";
+  let reasoningText = "";
   let promptTokens = 0;
 
   const stream = new ReadableStream({
@@ -308,18 +311,51 @@ export async function POST(req: NextRequest) {
         );
         send("start", { model, promptTokens });
 
-        for await (const chunk of streamChat({
-          messages,
-          model,
-          signal: abort.signal,
-        })) {
-          if (chunk.delta) {
-            completionText += chunk.delta;
-            send("delta", { text: chunk.delta });
+        // maxTokens 32768：给思考与正文留足预算。
+        // 大纲类 JSON 结构化任务关闭思考（thinking disabled）：
+        // 推理模型思考动辄数万 token、耗时数分钟且大概率解析失败，
+        // 得不偿失。若某轮正文为空，自动带提示重试一次（最多 2 轮）。
+        let attemptMsgs = messages;
+        for (let attempt = 1; attempt <= 2; attempt++) {
+          completionText = "";
+          reasoningText = "";
+          for await (const chunk of streamChat({
+            messages: attemptMsgs,
+            model,
+            signal: abort.signal,
+            maxTokens: 32768,
+            thinking:
+              action === "outline" || action === "outlineAppend"
+                ? "disabled"
+                : undefined,
+          })) {
+            // 思考内容单独作为 reasoning 事件推送（前端显示思考中）
+            if (chunk.reasoning) {
+              reasoningText += chunk.delta;
+              send("reasoning", { text: chunk.delta });
+              continue;
+            }
+            if (chunk.delta) {
+              completionText += chunk.delta;
+              send("delta", { text: chunk.delta });
+            }
           }
+          if (completionText.trim() || attempt >= 2) break;
+          // 正文为空：提示模型直接输出后重试
+          attemptMsgs = [
+            ...attemptMsgs,
+            {
+              role: "user" as const,
+              content:
+                "你上一轮只输出了思考过程，没有输出正文。请直接输出符合要求的 JSON 数组结果，不要输出任何解释或思考过程。",
+            },
+          ];
+          send("reasoning", { text: "\n[模型未输出正文，自动重试中...]\n" });
         }
 
-        const completionTokens = estimateTokens(completionText);
+        // 计费含思考 token（推理模型的思考也是真实成本）
+        const completionTokens =
+          estimateTokens(completionText) + estimateTokens(reasoningText);
         send("done", {
           text: completionText,
           promptTokens,

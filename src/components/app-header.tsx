@@ -26,7 +26,11 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 export function AppHeader() {
   const { data: session, status } = useSession();
   const router = useRouter();
-  const isLanding = usePathname() === "/";
+  const pathname = usePathname();
+  const isLanding = pathname === "/";
+  // 登录/注册页是全屏分栏布局（无顶部导航）
+  const isAuthPage = pathname === "/login" || pathname === "/register";
+  if (isAuthPage) return null;
 
   return (
     <header className="border-b border-border-neutral-l1 bg-bg-base-default/95 backdrop-blur sticky top-0 z-40">
@@ -66,7 +70,7 @@ export function AppHeader() {
                       我的项目
                     </Link>
                   </Button>
-                  <Button asChild size="sm" className="rounded-full bg-neutral-900 text-white hover:bg-neutral-700">
+                  <Button asChild size="sm" className="btn-cta rounded-full bg-neutral-900 text-white hover:bg-neutral-700">
                     <Link href="/projects?new=1" prefetch>
                       <Plus className="h-4 w-4" />
                       新建
@@ -123,7 +127,7 @@ export function AppHeader() {
               <Button
                 asChild
                 size="sm"
-                className="rounded-full bg-neutral-900 text-white hover:bg-neutral-700"
+                className="btn-cta rounded-full bg-neutral-900 text-white hover:bg-neutral-700"
               >
                 <Link href="/register" prefetch>免费注册</Link>
               </Button>

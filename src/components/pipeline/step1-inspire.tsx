@@ -219,7 +219,10 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
                   const card = parsed[selected];
                   const summary = `${card.core}\n核心冲突：${card.conflict}\n情绪基调：${card.mood}`;
                   await updateProjectSynopsisSelected(projectId, summary);
-                  window.dispatchEvent(new CustomEvent("pipeline-step-next"));
+                  // 携带最新 synopsis：流水线本地状态同步，无需刷新页面
+                  window.dispatchEvent(
+                    new CustomEvent("pipeline-step-next", { detail: { synopsis: summary } })
+                  );
                 }}
                 className="bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover"
               >

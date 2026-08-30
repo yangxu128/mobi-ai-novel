@@ -144,7 +144,7 @@ export function FeatureSection() {
 
         <Link
           href="/register"
-          className="mt-8 inline-flex items-center gap-1.5 rounded-full bg-neutral-900 px-5 py-2.5 text-sm text-white transition-colors hover:bg-neutral-700"
+          className="btn-cta mt-8 inline-flex items-center gap-1.5 rounded-full bg-neutral-900 px-5 py-2.5 text-sm text-white hover:bg-neutral-700"
         >
           免费开始创作
           <ArrowRight className="h-3.5 w-3.5" />

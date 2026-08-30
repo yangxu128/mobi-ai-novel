@@ -111,16 +111,15 @@ export function ProjectsClient({
     router.push(`/project/${res.projectId}?view=${modeInfo[mode].query}`);
   }
 
-  function handleDelete(e?: React.MouseEvent) {
-    // 阻止 AlertDialogAction 自动关闭对话框，等异步删除完成后再手动关闭
-    e?.preventDefault();
-    if (!deleteId) return;
+  function handleDelete(id: string) {
+    // 立即关闭确认框（交给 Radix 正常收尾，恢复 body 指针事件），
+    // 删除在后台执行：成功才从列表移除，失败用 toast 提示。
+    setDeleteId(null);
     startTransition(async () => {
-      const res = await deleteProjectAction(deleteId);
+      const res = await deleteProjectAction(id);
       if (res.ok) {
         toast({ title: "已删除", type: "success" });
-        setProjects((prev) => prev.filter((p) => p.id !== deleteId));
-        setDeleteId(null);
+        setProjects((prev) => prev.filter((p) => p.id !== id));
       } else {
         toast({ title: "删除失败", description: res.error, type: "error" });
       }
@@ -331,7 +330,7 @@ export function ProjectsClient({
           <AlertDialogFooter>
             <AlertDialogCancel>取消</AlertDialogCancel>
             <AlertDialogAction
-              onClick={handleDelete}
+              onClick={() => handleDelete(deleteId!)}
               disabled={pending}
             >
               {pending ? "删除中..." : "删除"}

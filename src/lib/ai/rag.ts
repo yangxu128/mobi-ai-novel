@@ -15,7 +15,7 @@
 import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import type { KnowledgeContext } from "./prompts";
-import { categoryLabel, roleLabel } from "@/lib/knowledge/labels";
+import { getCategoryLabel, roleLabel } from "@/lib/knowledge/labels";
 
 /**
  * 组装章节扩写所需的上下文。
@@ -27,8 +27,8 @@ export const buildChapterContext = cache(
     currentOutlineId?: string;
     query?: string; // RAG 查询（如大纲摘要 + 角色名）
   }): Promise<KnowledgeContext> => {
-  const [worldSettings, characters, currentOutline] =
-    await Promise.all([
+    const [worldSettings, characters, currentOutline, project] =
+      await Promise.all([
       // 世界观：限制最多 30 条，防止知识库过大时 prompt 爆 token
       prisma.worldSetting.findMany({
         where: { projectId: opts.projectId, deletedAt: null },
@@ -47,6 +47,11 @@ export const buildChapterContext = cache(
             where: { id: opts.currentOutlineId },
           })
         : Promise.resolve(null),
+      // 题材（用于 SYSTEM 槽位的自适应标签：力量体系 ↔ 人物关系）
+      prisma.project.findUnique({
+        where: { id: opts.projectId },
+        select: { genre: true },
+      }),
     ]);
 
   // 按"大纲顺序"取前文，而非 createdAt desc
@@ -151,7 +156,12 @@ export const buildChapterContext = cache(
         typeof w.content === "string"
           ? w.content
           : JSON.stringify(w.content, null, 2),
-      category: categoryLabel[w.category] || w.category,
+      // 标签随题材模式自适应（奇设可从标题/内容中检测）
+      category: getCategoryLabel(
+        w.category,
+        project?.genre,
+        `${w.title} ${typeof w.content === "string" ? w.content : ""}`
+      ),
     })),
     characters: characters.map((c: typeof characters[number]) => ({
       name: c.name,
@@ -186,6 +196,7 @@ export async function logAIUsage(opts: {
     | "worldbuild"
     | "character"
     | "outline"
+    | "outlineAppend"
     | "expand"
     | "polish"
     | "chat";

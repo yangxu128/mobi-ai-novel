@@ -28,6 +28,7 @@ interface Chapter {
 interface Project {
   id: string;
   title: string;
+  genre: string;
   worldSettings: Array<{ id: string; category: string; title: string; content: unknown }>;
   characters: Array<{
     id: string;
@@ -207,6 +208,7 @@ function WorkbenchClientImpl({ project }: { project: Project }) {
           <KnowledgeSidebarCompact
             worldSettings={project.worldSettings}
             characters={project.characters}
+            genre={project.genre}
           />
         </aside>
       )}

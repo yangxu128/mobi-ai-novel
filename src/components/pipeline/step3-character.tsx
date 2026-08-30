@@ -12,6 +12,7 @@ import { saveCharacterAction } from "@/actions/knowledge";
 import { toast } from "@/components/ui/toast";
 
 interface CharacterItem {
+  id?: string; // 已保存记录的 id：再次保存走 update，避免重复创建
   name: string;
   role: "PROTAGONIST" | "SUPPORTING" | "ANTAGONIST" | "EXTRA";
   appearance?: string;
@@ -52,6 +53,7 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
     if (existing.length > 0 && items.length === 0) {
       setItems(
         existing.map((e) => ({
+          id: e.id,
           name: e.name,
           role: e.role as CharacterItem["role"],
           appearance: e.appearance || "",
@@ -149,9 +151,21 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
       toast({ title: "请先生成或填写角色", type: "warning" });
       return;
     }
+    // 保存后回填真实 id，供流水线本地状态同步（下一步无需刷新页面）
+    const saved: Array<{
+      id: string;
+      name: string;
+      role: string;
+      appearance?: string | null;
+      personality?: string | null;
+      background?: string | null;
+      motivation?: string | null;
+      arc?: string | null;
+    }> = [];
     for (const it of items) {
       const res = await saveCharacterAction({
         projectId,
+        id: it.id,
         name: it.name,
         role: it.role,
         appearance: it.appearance,
@@ -164,9 +178,23 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
         toast({ title: "保存失败", description: res.error, type: "error" });
         return;
       }
+      it.id = res.id; // 回填：再次保存走 update，避免重复创建
+      saved.push({
+        id: res.id || "",
+        name: it.name,
+        role: it.role,
+        appearance: it.appearance || null,
+        personality: it.personality || null,
+        background: it.background || null,
+        motivation: it.motivation || null,
+        arc: it.arc || null,
+      });
     }
+    setItems([...items]);
     toast({ title: "角色卡已保存", type: "success" });
-    window.dispatchEvent(new CustomEvent("pipeline-step-next"));
+    window.dispatchEvent(
+      new CustomEvent("pipeline-step-next", { detail: { characters: saved } })
+    );
   }
 
   return (

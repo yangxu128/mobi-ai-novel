@@ -76,9 +76,36 @@ interface Props {
 export function PipelineFlowImpl({ project, worldSummary, characterSummary }: Props) {
   const [step, setStep] = useState(project.currentStep || 1);
 
-  // 监听子组件触发的 "next" 事件
+  // 各步骤产出数据的本地副本：SSR props 是首屏快照，
+  // 步骤保存后通过 "pipeline-step-next" 事件的 detail 同步到这里，后续步骤无需刷新页面
+  const [synopsis, setSynopsis] = useState(project.synopsis || "");
+  const [worldSettings, setWorldSettings] = useState(project.worldSettings);
+  const [characters, setCharacters] = useState(project.characters);
+
+  // 从本地数据重算摘要（与 project-workspace 的格式一致）
+  const localWorldSummary = worldSettings
+    .map((w) => `【${w.title}】${typeof w.content === "string" ? w.content : JSON.stringify(w.content)}`)
+    .join("\n");
+  const localCharacterSummary = characters
+    .map(
+      (c) =>
+        `${c.name}(${c.role})：${c.personality || ""} ${c.background || ""} ${
+          c.motivation ? "动机：" + c.motivation : ""
+        }`
+    )
+    .join("\n");
+  const effectiveWorldSummary = localWorldSummary || worldSummary;
+  const effectiveCharacterSummary = localCharacterSummary || characterSummary;
+
+  // 监听子组件触发的 "next" 事件（detail 携带该步骤刚保存的数据）
   useEffect(() => {
-    const handler = () => {
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as
+        | { synopsis?: string; worldSettings?: Props["project"]["worldSettings"]; characters?: Props["project"]["characters"] }
+        | undefined;
+      if (detail?.synopsis) setSynopsis(detail.synopsis);
+      if (detail?.worldSettings) setWorldSettings(detail.worldSettings);
+      if (detail?.characters) setCharacters(detail.characters);
       const next = Math.min(6, step + 1);
       setStep(next);
       updateProjectStepAction(project.id, next);
@@ -138,25 +165,25 @@ export function PipelineFlowImpl({ project, worldSummary, characterSummary }: Pr
           <Step2Worldbuild
             projectId={project.id}
             genre={project.genre}
-            inspiration={project.synopsis || ""}
-            existing={project.worldSettings}
+            inspiration={synopsis}
+            existing={worldSettings}
           />
         )}
         {step === 3 && (
           <Step3Character
             projectId={project.id}
             genre={project.genre}
-            worldSummary={worldSummary}
-            existing={project.characters}
+            worldSummary={effectiveWorldSummary}
+            existing={characters}
           />
         )}
         {step === 4 && (
           <Step4Outline
             projectId={project.id}
             genre={project.genre}
-            worldSummary={worldSummary}
-            characterSummary={characterSummary}
-            characters={project.characters.map((c) => ({ id: c.id, name: c.name }))}
+            worldSummary={effectiveWorldSummary}
+            characterSummary={effectiveCharacterSummary}
+            characters={characters.map((c) => ({ id: c.id, name: c.name }))}
             existing={project.outlines}
           />
         )}

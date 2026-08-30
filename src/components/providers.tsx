@@ -1,10 +1,33 @@
 "use client";
 
+import { useEffect } from "react";
 import { SessionProvider } from "next-auth/react";
 import { AppHeader } from "@/components/app-header";
 import { Toaster } from "@/components/ui/toast";
 
+/**
+ * 兜底守卫：Radix 的 DropdownMenu 与 AlertDialog 连续开关时，
+ * body 上的 pointer-events:none 偶发释放不完全（计数竞态），
+ * 导致整页不可点击。这里定时检查：没有任何弹层打开却仍是 none 时，
+ * 强制恢复默认指针状态。
+ */
+function usePointerEventsGuard() {
+  useEffect(() => {
+    const id = setInterval(() => {
+      if (document.body.style.pointerEvents !== "none") return;
+      const overlayOpen = document.querySelector(
+        '[data-state="open"][role="dialog"], [data-state="open"][role="alertdialog"], [data-state="open"][role="menu"], [data-state="open"][role="listbox"], [data-state="open"][role="tooltip"], [data-state="open"][role="combobox"]',
+      );
+      if (!overlayOpen) {
+        document.body.style.pointerEvents = "";
+      }
+    }, 1500);
+    return () => clearInterval(id);
+  }, []);
+}
+
 export function Providers({ children }: { children: React.ReactNode }) {
+  usePointerEventsGuard();
   return (
     // SessionProvider 默认行为：
     //   - refetchInterval=60s：每 60s 轮询 /api/auth/session

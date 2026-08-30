@@ -3,13 +3,9 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { AuthArtworkPanel } from "@/components/auth/auth-artwork-panel";
 import { registerAction } from "@/actions/auth";
 import { toast } from "@/components/ui/toast";
-import { PenLine } from "lucide-react";
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -33,42 +29,62 @@ export default function RegisterPage() {
   }
 
   return (
-    <div className="container py-12 flex items-center justify-center page-wash">
-      <Card className="w-full max-w-md shadow-[var(--shadow-card-hover)] border-border-neutral-l1">
-        <CardHeader className="items-center text-center">
-          <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-2xl brand-gradient text-text-onbrand shadow-[var(--shadow-glow)]">
-            <PenLine className="h-6 w-6" />
-          </div>
-          <CardTitle className="text-xl">免费注册</CardTitle>
-          <CardDescription>1 个项目 + 每日 500 字 AI 续写，永久免费</CardDescription>
-        </CardHeader>
-        <CardContent>
-          <form onSubmit={onSubmit} className="space-y-3">
-            <div className="space-y-1.5">
-              <Label htmlFor="name">昵称</Label>
-              <Input id="name" name="name" required maxLength={32} placeholder="你的笔名" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="email">邮箱</Label>
-              <Input id="email" name="email" type="email" required placeholder="you@example.com" />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="password">密码</Label>
-              <Input id="password" name="password" type="password" required minLength={6} placeholder="至少 6 位" />
-            </div>
+    <div className="flex min-h-full bg-white">
+      <AuthArtworkPanel />
+      <div className="flex min-h-full flex-1 items-center justify-center px-8 py-12">
+        <div className="w-full max-w-md">
+          <h1 className="text-3xl font-bold tracking-tight text-text-default">创建墨笔账号</h1>
+          <p className="mt-2.5 text-text-secondary">1 个项目 + 每日 500 字 AI 续写，永久免费</p>
+
+          <form onSubmit={onSubmit} className="mt-10 space-y-4">
+            <input
+              id="name"
+              name="name"
+              required
+              maxLength={32}
+              placeholder="你的笔名"
+              autoComplete="nickname"
+              className="auth-input"
+            />
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              placeholder="请输入邮箱"
+              autoComplete="email"
+              className="auth-input"
+            />
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              minLength={6}
+              placeholder="请设置密码（至少 6 位）"
+              autoComplete="new-password"
+              className="auth-input"
+            />
             {error && <p className="text-sm text-status-error">{error}</p>}
-            <Button type="submit" className="w-full" disabled={loading}>
+            <button
+              type="submit"
+              disabled={loading}
+              className="btn-cta h-[3.25rem] w-full rounded-full bg-neutral-900 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
+            >
               {loading ? "注册中..." : "注册并开始"}
-            </Button>
+            </button>
           </form>
-          <p className="text-sm text-text-tertiary text-center mt-4">
+
+          <p className="mt-8 text-sm text-text-tertiary">
             已有账号？{" "}
-            <Link href="/login" className="text-text-default underline underline-offset-2">
+            <Link href="/login" className="text-text-default underline underline-offset-4 hover:text-text-brand">
               直接登录
             </Link>
           </p>
-        </CardContent>
-      </Card>
+
+          <p className="mt-16 text-xs text-text-tertiary">© 2026 墨笔 AI · 让 AI 与你共写一本小说</p>
+        </div>
+      </div>
     </div>
   );
 }
