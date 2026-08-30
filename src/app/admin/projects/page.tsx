@@ -7,21 +7,25 @@ import { FolderOpen } from "lucide-react";
 export default async function AdminProjectsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; page?: string }>;
+  searchParams: Promise<{ search?: string; mode?: string; page?: string }>;
 }) {
   const sp = await searchParams;
   const search = sp.search || "";
+  const mode = sp.mode || "";
   const page = Math.max(1, parseInt(sp.page || "1", 10));
   const pageSize = 20;
 
-  const where = search
-    ? {
-        OR: [
-          { title: { contains: search, mode: "insensitive" as const } },
-          { user: { email: { contains: search, mode: "insensitive" as const } } },
-        ],
-      }
-    : {};
+  const AND: Record<string, unknown>[] = [];
+  if (search) {
+    AND.push({
+      OR: [
+        { title: { contains: search, mode: "insensitive" as const } },
+        { user: { email: { contains: search, mode: "insensitive" as const } } },
+      ],
+    });
+  }
+  if (mode) AND.push({ mode });
+  const where = AND.length ? { AND } : {};
 
   const [projects, total] = await Promise.all([
     prisma.project.findMany({
@@ -66,6 +70,7 @@ export default async function AdminProjectsPage({
         page={page}
         totalPages={totalPages}
         search={search}
+        mode={mode}
       />
     </div>
   );

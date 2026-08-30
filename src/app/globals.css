@@ -324,6 +324,110 @@
 .animate-reel-next { animation: reel-next 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
 .animate-reel-prev { animation: reel-prev 0.55s cubic-bezier(0.22, 1, 0.36, 1); }
 
+/* ═══════════════════════════════════════════════════════════════
+   首页文字与鼠标动效
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 流光渐变文字（渐变在文字上缓慢流动） */
+.text-shimmer {
+  background: linear-gradient(
+    110deg,
+    #ff7a00 15%,
+    #ffb25c 38%,
+    #ffd9a8 50%,
+    #ffb25c 62%,
+    #ff7a00 85%
+  );
+  background-size: 220% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: text-shimmer 3.2s linear infinite;
+}
+@keyframes text-shimmer {
+  from { background-position: 220% 0; }
+  to { background-position: -220% 0; }
+}
+
+/* 逐字显现（配合 <SplitReveal />）：升起 + 去模糊，交错延迟由 --d 传入 */
+.cr {
+  display: inline-block;
+  opacity: 0;
+  transform: translateY(0.65em) rotate(6deg);
+  filter: blur(10px);
+  transition:
+    opacity 0.5s ease var(--d, 0ms),
+    transform 0.65s cubic-bezier(0.22, 1, 0.36, 1) var(--d, 0ms),
+    filter 0.55s ease var(--d, 0ms);
+  will-change: opacity, transform, filter;
+}
+.split-in .cr {
+  opacity: 1;
+  transform: translateY(0) rotate(0);
+  filter: blur(0);
+}
+
+/* 鼠标跟随光晕 */
+.cursor-glow {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 480px;
+  height: 480px;
+  border-radius: 50%;
+  pointer-events: none;
+  z-index: 1;
+  background: radial-gradient(
+    circle,
+    rgba(255, 140, 40, 0.12) 0%,
+    rgba(255, 140, 40, 0.05) 38%,
+    transparent 68%
+  );
+  will-change: transform;
+}
+
+/* 点击涟漪 */
+.click-ripple {
+  position: fixed;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 122, 0, 0.45);
+  box-shadow: 0 0 12px rgba(255, 122, 0, 0.25) inset;
+  pointer-events: none;
+  z-index: 80;
+  transform: translate(-50%, -50%) scale(0.3);
+  opacity: 0.9;
+  animation: click-ripple 0.55s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+@keyframes click-ripple {
+  from { transform: translate(-50%, -50%) scale(0.3); opacity: 0.9; }
+  to { transform: translate(-50%, -50%) scale(8); opacity: 0; }
+}
+
+/* 输入条追光：光斑跟随光标在胶囊内移动 */
+.pill-glow {
+  position: relative;
+  overflow: hidden;
+}
+.pill-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: radial-gradient(
+    260px circle at var(--gx, 50%) var(--gy, 50%),
+    rgba(255, 122, 0, 0.10),
+    transparent 62%
+  );
+  opacity: 0;
+  transition: opacity 0.35s ease;
+  pointer-events: none;
+}
+.pill-glow:hover::before {
+  opacity: 1;
+}
+
 /* 漂浮卡片摇摆：外层视差位移（style 里写）+ 内层摇摆旋转 */
 @keyframes bob {
   0%, 100% { transform: translateY(0) rotate(var(--rot, 0deg)); }

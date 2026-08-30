@@ -42,8 +42,20 @@ export const authConfig = {
       const isLoggedIn = !!auth?.user;
       const { pathname } = request.nextUrl;
 
-      // 公开路由放行
-      const publicPaths = ["/", "/login", "/register", "/pricing"];
+      // 公开路由放行（官网营销页与内容页对未登录访客开放）
+      const publicPaths = [
+        "/",
+        "/login",
+        "/register",
+        "/pricing",
+        "/about",
+        "/faq",
+        "/guide",
+        "/changelog",
+        "/api-docs",
+        "/terms",
+        "/privacy",
+      ];
       if (publicPaths.some((p) => pathname === p)) return true;
 
       // NextAuth API 路由放行

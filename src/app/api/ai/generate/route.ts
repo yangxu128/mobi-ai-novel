@@ -231,6 +231,8 @@ export async function POST(req: NextRequest) {
     action: string;
     projectId?: string;
     payload: Record<string, unknown>;
+    /** 深度思考开关（页面控制，默认关）：开=模型先思考再输出 */
+    thinking?: boolean;
   };
 
   if (!action || !actionHandlers[action]) {
@@ -324,10 +326,8 @@ export async function POST(req: NextRequest) {
             model,
             signal: abort.signal,
             maxTokens: 32768,
-            thinking:
-              action === "outline" || action === "outlineAppend"
-                ? "disabled"
-                : undefined,
+            // 深度思考由页面开关控制（默认关，全 action 生效）
+            thinking: body.thinking === true ? "enabled" : "disabled",
           })) {
             // 思考内容单独作为 reasoning 事件推送（前端显示思考中）
             if (chunk.reasoning) {

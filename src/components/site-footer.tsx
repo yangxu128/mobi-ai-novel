@@ -14,23 +14,23 @@ export function SiteFooter() {
         { label: "功能特性", href: "/#capabilities" },
         { label: "创作模式", href: "/#modes" },
         { label: "定价方案", href: "/pricing" },
-        { label: "更新日志", href: "#" },
+        { label: "更新日志", href: "/changelog" },
       ],
     },
     {
       title: "资源",
       links: [
-        { label: "创作指南", href: "#" },
-        { label: "常见问题", href: "#" },
-        { label: "API 文档", href: "#" },
+        { label: "创作指南", href: "/guide" },
+        { label: "常见问题", href: "/faq" },
+        { label: "API 文档", href: "/api-docs" },
       ],
     },
     {
       title: "公司",
       links: [
-        { label: "关于我们", href: "#" },
+        { label: "关于我们", href: "/about" },
         { label: "联系我们", href: "mailto:hello@mobi.ai" },
-        { label: "加入我们", href: "#" },
+        { label: "加入我们", href: "/about#join" },
       ],
     },
   ];
@@ -94,8 +94,8 @@ export function SiteFooter() {
         <div className="mt-10 flex flex-col items-start justify-between gap-2 border-t border-border-neutral-l1 pt-6 text-xs text-text-tertiary sm:flex-row sm:items-center">
           <span>© 2026 墨笔 AI · 让 AI 与你共写一本小说</span>
           <span className="flex gap-4">
-            <Link href="#" className="transition-colors hover:text-text-default">服务条款</Link>
-            <Link href="#" className="transition-colors hover:text-text-default">隐私政策</Link>
+            <Link href="/terms" className="transition-colors hover:text-text-default">服务条款</Link>
+            <Link href="/privacy" className="transition-colors hover:text-text-default">隐私政策</Link>
           </span>
         </div>
       </div>

@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, memo } from "react";
-import Link from "next/link";
 import { Check } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PROJECT_VIEW_CHANGE_EVENT } from "@/components/hooks/use-view-switcher";
 import { updateProjectStepAction } from "@/actions/project";
 import { Step1Inspire } from "./step1-inspire";
 import { Step2Worldbuild } from "./step2-worldbuild";
@@ -213,8 +213,17 @@ export function PipelineFlowImpl({ project, worldSummary, characterSummary }: Pr
             跳到下一步
           </Button>
         ) : (
-          <Button asChild variant="outline" className="border-border-neutral-l2 hover:bg-bg-overlay-l1">
-            <Link href={`/project/${project.id}?view=workbench`}>前往工作台继续编辑</Link>
+          <Button
+            variant="outline"
+            onClick={() =>
+              window.dispatchEvent(
+                new CustomEvent(PROJECT_VIEW_CHANGE_EVENT, {
+                  detail: { view: "WORKBENCH" },
+                })
+              )
+            }
+          >
+            前往工作台继续编辑
           </Button>
         )}
       </div>

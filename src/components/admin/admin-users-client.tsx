@@ -49,21 +49,38 @@ export function AdminUsersClient({
   page,
   totalPages,
   search,
+  role,
+  plan,
 }: {
   users: UserItem[];
   page: number;
   totalPages: number;
   search: string;
+  role: string;
+  plan: string;
 }) {
   const router = useRouter();
   const [keyword, setKeyword] = useState(search);
+  const [roleFilter, setRoleFilter] = useState(role);
+  const [planFilter, setPlanFilter] = useState(plan);
   const [pending, startTransition] = useTransition();
+
+  /** 组合筛选参数并导航（filters 变更时重置到第 1 页） */
+  function navigate(next: { search?: string; role?: string; plan?: string; page?: number }) {
+    const params = new URLSearchParams();
+    const s = next.search ?? keyword;
+    const r = next.role ?? roleFilter;
+    const pl = next.plan ?? planFilter;
+    if (s) params.set("search", s);
+    if (r) params.set("role", r);
+    if (pl) params.set("plan", pl);
+    if (next.page && next.page > 1) params.set("page", String(next.page));
+    router.push(`/admin/users?${params.toString()}`);
+  }
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
-    const params = new URLSearchParams();
-    if (keyword) params.set("search", keyword);
-    router.push(`/admin/users?${params.toString()}`);
+    navigate({ search: keyword, page: 1 });
   }
 
   function onRoleChange(userId: string, role: string) {
@@ -104,9 +121,9 @@ export function AdminUsersClient({
 
   return (
     <div className="space-y-4">
-      {/* 搜索 */}
-      <form onSubmit={onSearch} className="flex gap-2">
-        <div className="relative flex-1 max-w-sm">
+      {/* 搜索与筛选 */}
+      <form onSubmit={onSearch} className="flex flex-wrap gap-2">
+        <div className="relative min-w-52 flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
           <Input
             value={keyword}
@@ -115,7 +132,37 @@ export function AdminUsersClient({
             className="pl-9"
           />
         </div>
-        <Button type="submit" variant="outline" size="sm">搜索</Button>
+        <Select value={roleFilter || "all"} onValueChange={(v) => { setRoleFilter(v === "all" ? "" : v); navigate({ role: v === "all" ? "" : v, page: 1 }); }}>
+          <SelectTrigger className="w-32"><SelectValue placeholder="全部角色" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部角色</SelectItem>
+            <SelectItem value="ADMIN">ADMIN</SelectItem>
+            <SelectItem value="PRO">PRO</SelectItem>
+            <SelectItem value="BASIC">BASIC</SelectItem>
+            <SelectItem value="FREE">FREE</SelectItem>
+          </SelectContent>
+        </Select>
+        <Select value={planFilter || "all"} onValueChange={(v) => { setPlanFilter(v === "all" ? "" : v); navigate({ plan: v === "all" ? "" : v, page: 1 }); }}>
+          <SelectTrigger className="w-32"><SelectValue placeholder="全部订阅" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部订阅</SelectItem>
+            <SelectItem value="FREE">FREE</SelectItem>
+            <SelectItem value="BASIC">BASIC</SelectItem>
+            <SelectItem value="PRO">PRO</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button type="submit" variant="outline" size="sm">查询</Button>
+        {(search || roleFilter || planFilter) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-text-tertiary"
+            onClick={() => { setKeyword(""); setRoleFilter(""); setPlanFilter(""); router.push("/admin/users"); }}
+          >
+            重置
+          </Button>
+        )}
       </form>
 
       {/* 表格 */}
@@ -230,28 +277,18 @@ export function AdminUsersClient({
             variant="outline"
             size="sm"
             disabled={page <= 1}
-            onClick={() => {
-              const params = new URLSearchParams();
-              if (search) params.set("search", search);
-              params.set("page", String(page - 1));
-              router.push(`/admin/users?${params.toString()}`);
-            }}
+            onClick={() => navigate({ page: page - 1 })}
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <span className="text-sm text-text-tertiary">
+          <span className="num text-sm text-text-tertiary">
             {page} / {totalPages}
           </span>
           <Button
             variant="outline"
             size="sm"
             disabled={page >= totalPages}
-            onClick={() => {
-              const params = new URLSearchParams();
-              if (search) params.set("search", search);
-              params.set("page", String(page + 1));
-              router.push(`/admin/users?${params.toString()}`);
-            }}
+            onClick={() => navigate({ page: page + 1 })}
           >
             <ChevronRight className="h-4 w-4" />
           </Button>

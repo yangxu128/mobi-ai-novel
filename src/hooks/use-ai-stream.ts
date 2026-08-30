@@ -6,10 +6,13 @@
  */
 
 import { useCallback, useRef, useState } from "react";
+import { isThinkingEnabled } from "@/lib/ai/thinking";
 
 interface UseAIStreamOptions {
   onDone?: (fullText: string) => void;
   onError?: (err: string) => void;
+  /** 用户主动停止时回调（携带已生成的部分内容） */
+  onAbort?: (partialText: string) => void;
 }
 
 export function useAIStream(opts: UseAIStreamOptions = {}) {
@@ -35,7 +38,13 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
         const resp = await fetch("/api/ai/generate", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
+          body: JSON.stringify({
+            action: payload.action,
+            projectId: payload.projectId,
+            payload: payload.payload,
+            // 深度思考开关（页面控制，默认关）
+            thinking: isThinkingEnabled(),
+          }),
           signal: abort.signal,
         });
 
@@ -124,7 +133,8 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
         }
       } catch (e) {
         if ((e as Error).name === "AbortError") {
-          // 用户主动取消，保留已生成内容
+          // 用户主动取消：把已生成的部分内容交给 onAbort（如自动保存）
+          opts.onAbort?.(fullTextRef.current);
         } else {
           setError((e as Error).message);
           opts.onError?.((e as Error).message);

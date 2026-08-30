@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,8 @@ import { useAIStream } from "@/hooks/use-ai-stream";
 import { saveChapterContentAction } from "@/actions/chapter";
 import { toast } from "@/components/ui/toast";
 import { formatWordCount, htmlToText, textToHtml } from "@/lib/utils";
+
+const EDIT_AUTOSAVE_DELAY = 3000;
 
 interface Chapter {
   id: string;
@@ -41,10 +43,44 @@ export function Step5Expand({
   );
   // 草稿统一以纯文本形式存储，避免在工作台（HTML）与流水线（纯文本）之间反复转换
   const [draft, setDraft] = useState<Record<string, string>>({});
+  // 流式目标章节：生成期间用户切换章节时，自动保存仍写入正确的章节
+  const streamTargetRef = useRef<string | null>(null);
+  const savingRef = useRef(false);
+  const editTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  /** 静默自动保存（纯文本 → TipTap HTML 入库） */
+  async function autoSave(chapterId: string, plain: string) {
+    if (!chapterId || !plain.trim() || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      const res = await saveChapterContentAction(chapterId, textToHtml(plain));
+      if (res.ok) {
+        toast({ title: "已自动保存", type: "success" });
+      } else {
+        toast({ title: "自动保存失败", description: res.error, type: "error" });
+      }
+    } catch {
+      toast({ title: "自动保存失败", type: "error" });
+    } finally {
+      savingRef.current = false;
+    }
+  }
+
   const { generate, isStreaming, text, error, stop } = useAIStream({
     onDone: (full) => {
-      if (activeId) {
-        setDraft((d) => ({ ...d, [activeId]: full }));
+      const target = streamTargetRef.current ?? activeId;
+      if (target) {
+        setDraft((d) => ({ ...d, [target]: full }));
+        // 生成完成：自动保存正文
+        void autoSave(target, full);
+      }
+    },
+    onAbort: (partial) => {
+      // 用户主动停止：半成品也自动保存，避免丢失
+      const target = streamTargetRef.current ?? activeId;
+      if (target && partial.trim()) {
+        setDraft((d) => ({ ...d, [target]: partial }));
+        void autoSave(target, partial);
       }
     },
   });
@@ -58,6 +94,7 @@ export function Step5Expand({
 
   async function onGenerate() {
     if (!activeChapter) return;
+    streamTargetRef.current = activeChapter.id;
     setDraft((d) => ({ ...d, [activeChapter.id]: "" }));
 
     // 按大纲顺序升序排 chapters，找出当前章节在时间线上的位置
@@ -202,7 +239,16 @@ export function Step5Expand({
 
             <Textarea
               value={isStreaming && activeId ? text : activeDraft}
-              onChange={(e) => activeId && setDraft((d) => ({ ...d, [activeId]: e.target.value }))}
+              onChange={(e) => {
+                if (!activeId || isStreaming) return;
+                const v = e.target.value;
+                setDraft((d) => ({ ...d, [activeId]: v }));
+                // 手动编辑防抖自动保存
+                if (editTimerRef.current) clearTimeout(editTimerRef.current);
+                editTimerRef.current = setTimeout(() => {
+                  void autoSave(activeId, v);
+                }, EDIT_AUTOSAVE_DELAY);
+              }}
               placeholder="点击 AI 扩写生成正文，或手动输入"
               rows={20}
               className="font-serif text-base leading-relaxed rounded-xl"

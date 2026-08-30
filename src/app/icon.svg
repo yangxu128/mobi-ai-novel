@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FF9A3D"/>
+      <stop offset="0.55" stop-color="#FF7A00"/>
+      <stop offset="1" stop-color="#F05E00"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="url(#g)"/>
+  <!-- 笔尖（钢笔斜置 45°，与站内 PenLine logo 同形） -->
+  <g transform="rotate(45 32 32)">
+    <path d="M32 12 L38.5 26.5 L35 47 Q32 50.5 29 47 L25.5 26.5 Z" fill="none" stroke="#FFFFFF" stroke-width="3.4" stroke-linejoin="round"/>
+    <circle cx="32" cy="33" r="2.6" fill="#FFFFFF"/>
+    <path d="M32 36 L32 47" stroke="#FFFFFF" stroke-width="3.4" stroke-linecap="round"/>
+  </g>
+</svg>

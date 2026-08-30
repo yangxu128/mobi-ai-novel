@@ -3,6 +3,13 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -50,21 +57,32 @@ export function AdminProjectsClient({
   page,
   totalPages,
   search,
+  mode,
 }: {
   projects: ProjectItem[];
   page: number;
   totalPages: number;
   search: string;
+  mode: string;
 }) {
   const router = useRouter();
   const [keyword, setKeyword] = useState(search);
+  const [modeFilter, setModeFilter] = useState(mode);
   const [pending, startTransition] = useTransition();
+
+  function navigate(next: { search?: string; mode?: string; page?: number }) {
+    const params = new URLSearchParams();
+    const s = next.search ?? keyword;
+    const m = next.mode ?? modeFilter;
+    if (s) params.set("search", s);
+    if (m) params.set("mode", m);
+    if (next.page && next.page > 1) params.set("page", String(next.page));
+    router.push(`/admin/projects?${params.toString()}`);
+  }
 
   function onSearch(e: React.FormEvent) {
     e.preventDefault();
-    const params = new URLSearchParams();
-    if (keyword) params.set("search", keyword);
-    router.push(`/admin/projects?${params.toString()}`);
+    navigate({ search: keyword, page: 1 });
   }
 
   function onDelete(projectId: string) {
@@ -80,16 +98,13 @@ export function AdminProjectsClient({
   }
 
   function goPage(p: number) {
-    const params = new URLSearchParams();
-    if (search) params.set("search", search);
-    params.set("page", String(p));
-    router.push(`/admin/projects?${params.toString()}`);
+    navigate({ page: p });
   }
 
   return (
     <div className="space-y-4">
-      <form onSubmit={onSearch} className="flex gap-2">
-        <div className="relative flex-1 max-w-sm">
+      <form onSubmit={onSearch} className="flex flex-wrap gap-2">
+        <div className="relative min-w-52 flex-1 max-w-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-text-tertiary" />
           <Input
             value={keyword}
@@ -98,7 +113,33 @@ export function AdminProjectsClient({
             className="pl-9"
           />
         </div>
-        <Button type="submit" variant="outline" size="sm">搜索</Button>
+        <Select
+          value={modeFilter || "all"}
+          onValueChange={(v) => {
+            setModeFilter(v === "all" ? "" : v);
+            navigate({ mode: v === "all" ? "" : v, page: 1 });
+          }}
+        >
+          <SelectTrigger className="w-32"><SelectValue placeholder="全部模式" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">全部模式</SelectItem>
+            <SelectItem value="PIPELINE">流水线</SelectItem>
+            <SelectItem value="WORKBENCH">工作台</SelectItem>
+            <SelectItem value="CHAT">对话共创</SelectItem>
+          </SelectContent>
+        </Select>
+        <Button type="submit" variant="outline" size="sm">查询</Button>
+        {(search || modeFilter) && (
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className="text-text-tertiary"
+            onClick={() => { setKeyword(""); setModeFilter(""); router.push("/admin/projects"); }}
+          >
+            重置
+          </Button>
+        )}
       </form>
 
       <div className="rounded-2xl border border-border-neutral-l1 bg-bg-base-default shadow-[var(--shadow-card)] overflow-hidden">

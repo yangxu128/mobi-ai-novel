@@ -1,6 +1,6 @@
 "use client";
 
-import { memo, useState } from "react";
+import { memo, useEffect, useState } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -54,6 +54,17 @@ function WorkbenchClientImpl({ project }: { project: Project }) {
   const [focusMode, setFocusMode] = useState(false);
   const [creating, setCreating] = useState(false);
   const [newTitle, setNewTitle] = useState("");
+
+  // 外部数据更新（流水线生成/自动保存后 router.refresh 拉到新 props）时
+  // 同步章节列表与内容，否则工作台永远停留在首次挂载时的空数据
+  useEffect(() => {
+    setChapters(project.chapters);
+    setActiveId((cur) =>
+      cur && project.chapters.some((c) => c.id === cur)
+        ? cur
+        : project.chapters[0]?.id || null
+    );
+  }, [project.chapters]);
 
   const active = chapters.find((c) => c.id === activeId);
 
@@ -216,8 +227,12 @@ function WorkbenchClientImpl({ project }: { project: Project }) {
   );
 }
 
-// memo 包裹：项目数据变化时（其他视图操作触发）不会重渲染工作台
+// memo 包裹：工作台自身的状态变化不触发重渲染；
+// 但 chapters 数据更新（router.refresh 后引用变化）必须放行，
+// 由上面的 useEffect 同步章节列表与正文
 export const WorkbenchClient = memo(WorkbenchClientImpl, (prev, next) => {
-  // 只在 project.id 变化时重渲染，project 内部数据变化由子组件自己管理
-  return prev.project.id === next.project.id;
+  return (
+    prev.project.id === next.project.id &&
+    prev.project.chapters === next.project.chapters
+  );
 });

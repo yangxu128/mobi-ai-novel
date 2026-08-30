@@ -17,6 +17,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { StylePicker } from "@/components/style/style-picker";
 import { ModelPicker } from "@/components/model/model-picker";
+import { ThinkingToggle } from "@/components/model/thinking-toggle";
 import { updateStyleProfileAction, updateProjectModelAction } from "@/actions/project";
 import type { StyleProfile } from "@/lib/ai/style";
 import { toast } from "@/components/ui/toast";
@@ -224,6 +225,7 @@ function ProjectWorkspaceImpl({ project, initialView }: Props) {
                   </button>
                 )}
                 <ModelPicker value={projectModel} onChange={handleModelChange} />
+                <ThinkingToggle />
               </div>
             </div>
             <ProjectModeSwitcher
@@ -248,6 +250,7 @@ function ProjectWorkspaceImpl({ project, initialView }: Props) {
               <span className="ml-2">
                 <ModelPicker value={projectModel} onChange={handleModelChange} />
               </span>
+              <ThinkingToggle />
             </div>
             <ProjectModeSwitcher
               current={activeView}

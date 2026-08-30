@@ -99,6 +99,7 @@ export function TipTapEditor({
       CharacterCount,
     ],
     content: initialContent || "",
+    immediatelyRender: false,
     editorProps: {
       attributes: {
         class:
@@ -106,6 +107,18 @@ export function TipTapEditor({
       },
     },
   });
+
+  // 外部内容更新（其他视图保存后 router.refresh 同步到 props）：
+  // 本地没有未保存修改时，把新内容应用到编辑器
+  const appliedContentRef = useRef(initialContent || "");
+  useEffect(() => {
+    if (!editor) return;
+    const incoming = initialContent || "";
+    if (incoming === appliedContentRef.current) return;
+    if (saveStatus === "dirty" || saveStatus === "saving") return;
+    appliedContentRef.current = incoming;
+    editor.commands.setContent(incoming, false);
+  }, [editor, initialContent, saveStatus]);
 
   // 手动保存
   const manualSave = useCallback(async () => {
