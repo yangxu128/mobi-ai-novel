@@ -29,7 +29,7 @@ export default function PrivacyPage() {
         <p>如需注销账号或导出全部个人信息，请发送邮件至 hello@mobi.ai，我们将在 7 个工作日内处理。</p>
       </Section>
       <Section title="六、政策更新">
-        <p>本政策如有重大变更，将在本页面公示并更新"最后更新"日期。继续使用即视为知悉并同意更新内容。</p>
+        <p>本政策如有重大变更，将在本页面公示并更新「最后更新」日期。继续使用即视为知悉并同意更新内容。</p>
       </Section>
     </SimplePage>
   );

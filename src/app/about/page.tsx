@@ -15,7 +15,7 @@ export default function AboutPage() {
       <Section title="我们的坚持">
         <p><strong>作者拥有作品</strong>——AI 只做辅助，所有内容的权利归创作者；</p>
         <p><strong>长篇一致性</strong>——知识库 RAG + 分层上下文 + 一致性引擎，写到 100 章不串设定；</p>
-        <p><strong>节奏科学</strong>——内置番茄网文节奏体系与结尾钩子设计，让"写完"走向"有人追读"。</p>
+        <p><strong>节奏科学</strong>——内置番茄网文节奏体系与结尾钩子设计，让「写完」走向「有人追读」。</p>
       </Section>
       <Section title="联系我们">
         <p>产品建议、合作洽谈或任何问题，欢迎来信：<a href="mailto:hello@mobi.ai" className="text-text-brand hover:underline">hello@mobi.ai</a>。我们认真阅读每一封邮件。</p>
