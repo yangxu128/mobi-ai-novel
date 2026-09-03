@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 
 export type SessionUser = {
   id: string;
@@ -32,9 +33,16 @@ export async function requireUser(): Promise<SessionUser> {
 
 /**
  * 要求当前用户是管理员。返回管理员用户对象，否则返回 null。
+ * 角色以数据库为准（session/JWT 里的 role 是登录时的缓存），
+ * 降权后的前管理员即使 JWT 未过期也无法再调用管理操作。
  */
 export async function requireAdmin(): Promise<SessionUser | null> {
   const user = await getCurrentUser();
-  if (!user || user.role !== "ADMIN") return null;
+  if (!user) return null;
+  const dbUser = await prisma.user.findUnique({
+    where: { id: user.id },
+    select: { role: true },
+  });
+  if (!dbUser || dbUser.role !== "ADMIN") return null;
   return user;
 }

@@ -68,16 +68,26 @@ const actionHandlers: Record<string, ActionHandler> = {
     return characterPrompt(worldSummary, genre, undefined, styleProfile);
   },
 
-  async outline({ payload }) {
+  async outline({ projectId, payload }) {
     const worldSummary = String(payload.worldSummary || "");
     const characterSummary = String(payload.characterSummary || "");
     const genre = String(payload.genre || "都市");
     const template = String(payload.template || "三幕式");
     const styleProfile = (payload.styleProfile as StyleProfile | null) ?? null;
-    return outlinePrompt(worldSummary, characterSummary, genre, template, styleProfile);
+    // 全书规模：立项时设定的目标章节数/每章字数，让大纲有整体观
+    const targets = projectId
+      ? await prisma.project.findUnique({
+          where: { id: projectId },
+          select: { targetChapters: true, chapterWords: true },
+        })
+      : null;
+    return outlinePrompt(worldSummary, characterSummary, genre, template, styleProfile, {
+      targetChapters: targets?.targetChapters ?? null,
+      chapterWords: targets?.chapterWords ?? null,
+    });
   },
 
-  async outlineAppend({ payload }) {
+  async outlineAppend({ projectId, payload }) {
     const worldSummary = String(payload.worldSummary || "");
     const characterSummary = String(payload.characterSummary || "");
     const genre = String(payload.genre || "都市");
@@ -95,20 +105,29 @@ const actionHandlers: Record<string, ActionHandler> = {
           }))
       : [];
     if (existingOutlines.length === 0) throw new Error("缺少已有大纲");
-    return outlineAppendPrompt(worldSummary, characterSummary, genre, template, existingOutlines, styleProfile);
+    const targets = projectId
+      ? await prisma.project.findUnique({
+          where: { id: projectId },
+          select: { targetChapters: true, chapterWords: true },
+        })
+      : null;
+    return outlineAppendPrompt(worldSummary, characterSummary, genre, template, existingOutlines, styleProfile, {
+      targetChapters: targets?.targetChapters ?? null,
+      chapterWords: targets?.chapterWords ?? null,
+    });
   },
 
   async expand({ projectId, payload }) {
     if (!projectId) throw new Error("缺少 projectId");
     const project = await prisma.project.findUnique({
       where: { id: projectId },
-      select: { styleProfile: true },
+      select: { styleProfile: true, chapterWords: true },
     });
     const outlineId = payload.outlineId ? String(payload.outlineId) : undefined;
     const instruction = String(payload.instruction || "请按大纲扩写本章");
     const ctx = await buildChapterContext({ projectId, currentOutlineId: outlineId });
     const styleProfile = (project?.styleProfile as StyleProfile | null) ?? null;
-    return expandPrompt(instruction, ctx, styleProfile);
+    return expandPrompt(instruction, ctx, styleProfile, project?.chapterWords ?? null);
   },
 
   async polish({ projectId, payload }) {

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, memo, useState } from "react";
 import Link from "next/link";
-import { ProjectModeSwitcher } from "@/components/project-mode-switcher";
+import { ProjectModeSwitcher, VIEW_MODES } from "@/components/project-mode-switcher";
 import { PipelineFlow } from "@/components/pipeline/pipeline-flow";
 import { WorkbenchClient } from "@/components/workbench/workbench-client";
 import { ChatCoCreateClient, getOrFetchChatSession } from "@/components/chat/chat-cocreate-client";
@@ -15,12 +15,21 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { StylePicker } from "@/components/style/style-picker";
 import { ModelPicker } from "@/components/model/model-picker";
 import { ThinkingToggle } from "@/components/model/thinking-toggle";
-import { updateStyleProfileAction, updateProjectModelAction } from "@/actions/project";
+import { PenLine, BookOpenText } from "lucide-react";
+import {
+  updateStyleProfileAction,
+  updateProjectModelAction,
+  updateProjectTargetsAction,
+} from "@/actions/project";
 import type { StyleProfile } from "@/lib/ai/style";
 import { toast } from "@/components/ui/toast";
+import { cn } from "@/lib/utils";
+import { formatCount } from "@/lib/utils";
 
 interface ProjectData {
   id: string;
@@ -30,6 +39,8 @@ interface ProjectData {
   currentStep: number;
   synopsis: string | null;
   model: string | null;
+  targetChapters: number | null;
+  chapterWords: number | null;
   styleProfile: StyleProfile | null;
   worldSettings: Array<{
     id: string;
@@ -102,6 +113,47 @@ function ProjectWorkspaceImpl({ project, initialView }: Props) {
   const [projectModel, setProjectModel] = useState<string | null>(
     project.model ?? null
   );
+  // 全书规模（章节数/每章字数）：供大纲与扩写把控整体节奏
+  const [targets, setTargets] = useState<{
+    targetChapters: number | null;
+    chapterWords: number | null;
+  }>({
+    targetChapters: project.targetChapters ?? null,
+    chapterWords: project.chapterWords ?? null,
+  });
+  const [targetsDialogOpen, setTargetsDialogOpen] = useState(false);
+  const [draftChapters, setDraftChapters] = useState("");
+  const [draftWords, setDraftWords] = useState("");
+
+  function openTargetsDialog() {
+    setDraftChapters(targets.targetChapters ? String(targets.targetChapters) : "");
+    setDraftWords(targets.chapterWords ? String(targets.chapterWords) : "");
+    setTargetsDialogOpen(true);
+  }
+
+  async function saveTargets() {
+    const chapters = draftChapters ? Number(draftChapters) : null;
+    const words = draftWords ? Number(draftWords) : null;
+    if (chapters != null && (!Number.isFinite(chapters) || chapters < 1)) {
+      toast({ title: "章节数需为大于 0 的整数", type: "warning" });
+      return;
+    }
+    if (words != null && (!Number.isFinite(words) || words < 100)) {
+      toast({ title: "每章字数需不小于 100", type: "warning" });
+      return;
+    }
+    const res = await updateProjectTargetsAction(project.id, {
+      targetChapters: chapters,
+      chapterWords: words,
+    });
+    if (res.ok) {
+      setTargets({ targetChapters: chapters, chapterWords: words });
+      setTargetsDialogOpen(false);
+      toast({ title: "全书规模已更新", type: "success" });
+    } else {
+      toast({ title: "更新失败", description: res.error, type: "error" });
+    }
+  }
 
   async function handleStyleChange(profile: StyleProfile | null) {
     setStyleProfile(profile);
@@ -182,84 +234,98 @@ function ProjectWorkspaceImpl({ project, initialView }: Props) {
   }, [project.id]);
 
   const isPipeline = activeView === "PIPELINE";
+  const modeLabel = VIEW_MODES.find((m) => m.key === activeView)?.label ?? "";
+  const caption = isPipeline
+    ? `${project.genre} · 第 ${project.currentStep}/6 步 · ${STEP_LABELS[project.currentStep - 1]}`
+    : `${project.genre} · ${modeLabel}`;
 
   return (
-    <div className="h-full flex flex-col">
-      {/* 头部 */}
-      {isPipeline ? (
-        <div className="container py-4 shrink-0">
-          <div className="bg-bg-base-default rounded-2xl shadow-sm p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <div className="flex items-center gap-2 text-xs text-text-tertiary mb-1">
-                <Link href="/projects" className="hover:text-text-default">
-                  我的项目
-                </Link>
-                <span>/</span>
-                <span>流水线</span>
-              </div>
-              <h1 className="text-2xl font-bold">{project.title}</h1>
-              <p className="text-sm text-text-tertiary mt-1">
-                {project.genre} · 第 {project.currentStep}/6 步 ·{" "}
-                {STEP_LABELS[project.currentStep - 1]}
-              </p>
-              <div className="mt-2 flex items-center gap-2 flex-wrap">
-                {styleProfile && (
-                  <button
-                    onClick={() => setStyleDialogOpen(true)}
-                    className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md bg-bg-overlay-l1 hover:bg-bg-overlay-l2 transition-colors text-xs"
-                  >
-                    <span className="font-medium text-text-default">{styleProfile.name}</span>
-                    <span className="text-text-tertiary">
-                      {styleProfile.intensity === "low" ? "轻微" : styleProfile.intensity === "medium" ? "中等" : "强烈"}
-                    </span>
-                    <span className="text-text-disabled">|</span>
-                    <span className="text-text-tertiary">更换</span>
-                  </button>
-                )}
-                {!styleProfile && (
-                  <button
-                    onClick={() => setStyleDialogOpen(true)}
-                    className="inline-flex items-center gap-1 px-2 py-1 rounded-md border border-border-neutral-l2 hover:bg-bg-overlay-l1 transition-colors text-xs text-text-tertiary"
-                  >
-                    + 设置写作风格
-                  </button>
-                )}
-                <ModelPicker value={projectModel} onChange={handleModelChange} />
-                <ThinkingToggle />
-              </div>
-            </div>
-            <ProjectModeSwitcher
-              current={activeView}
-              onChange={handleViewChange}
-              pending={pending}
-            />
+    <div className="h-full flex flex-col bg-[var(--bg-canvas)]">
+      {/* 统一顶栏：品牌 + 项目名 + 模型/思考/模式切换 */}
+      <header className="shrink-0 border-b border-border-neutral-l1 bg-bg-base-default">
+        <div className="flex h-14 items-center gap-3 px-4">
+          <Link href="/projects" className="flex shrink-0 items-center gap-2">
+            <span className="brand-gradient flex h-8 w-8 items-center justify-center rounded-lg shadow-[var(--shadow-glow)]">
+              <PenLine className="h-4 w-4 text-text-onbrand" />
+            </span>
+            <span className="font-display hidden text-base font-bold text-text-default sm:block">
+              墨笔
+            </span>
+          </Link>
+          <span className="hidden h-5 w-px bg-border-neutral-l2 sm:block" />
+          <div className="min-w-0">
+            <h1 className="font-display truncate text-[15px] font-semibold leading-tight text-text-default">
+              {project.title}
+            </h1>
+            <p className="truncate text-[11px] leading-tight text-text-tertiary">{caption}</p>
           </div>
-        </div>
-      ) : (
-        <div className="border-b border-border-neutral-l1 bg-bg-base-default shrink-0">
-          <div className="container py-2 flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Link
-                href="/projects"
-                className="text-xs text-text-tertiary hover:text-text-default"
+          {isPipeline && (
+            <>
+              <button
+                onClick={openTargetsDialog}
+                className={cn(
+                  "hidden h-7 items-center gap-1.5 rounded-md px-2 text-xs transition-colors md:inline-flex",
+                  targets.targetChapters || targets.chapterWords
+                    ? "bg-bg-overlay-l1 text-text-default hover:bg-bg-overlay-l2"
+                    : "border border-border-neutral-l2 text-text-tertiary hover:bg-bg-overlay-l1 hover:text-text-default"
+                )}
+                title="设定全书目标章节数与每章字数，大纲与扩写将据此把控整体节奏"
               >
-                项目列表
-              </Link>
-              <span className="text-xs text-text-tertiary">/</span>
-              <span className="text-sm font-medium">{project.title}</span>
-              <span className="ml-2">
-                <ModelPicker value={projectModel} onChange={handleModelChange} />
-              </span>
-              <ThinkingToggle />
-            </div>
-            <ProjectModeSwitcher
-              current={activeView}
-              onChange={handleViewChange}
-              pending={pending}
-            />
-          </div>
+                <BookOpenText className="h-3.5 w-3.5" />
+                {targets.targetChapters || targets.chapterWords
+                  ? [
+                      targets.targetChapters ? `${targets.targetChapters} 章` : null,
+                      targets.chapterWords ? `${targets.chapterWords}字/章` : null,
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")
+                  : "全书规划"}
+              </button>
+              {styleProfile ? (
+                <button
+                  onClick={() => setStyleDialogOpen(true)}
+                  className="hidden h-7 items-center gap-1.5 rounded-md bg-bg-brand-popup px-2 text-xs text-text-brand transition-colors hover:brightness-[0.98] md:inline-flex"
+                  title="点击更换写作风格"
+                >
+                  <span className="font-medium">{styleProfile.name}</span>
+                  <span className="opacity-70">
+                    {styleProfile.intensity === "low"
+                      ? "轻微"
+                      : styleProfile.intensity === "medium"
+                        ? "中等"
+                        : "强烈"}
+                  </span>
+                </button>
+              ) : (
+                <button
+                  onClick={() => setStyleDialogOpen(true)}
+                  className="hidden h-7 items-center gap-1 rounded-md border border-border-neutral-l2 px-2 text-xs text-text-tertiary transition-colors hover:bg-bg-overlay-l1 hover:text-text-default md:inline-flex"
+                >
+                  + 写作风格
+                </button>
+              )}
+            </>
+          )}
+          <div className="flex-1" />
+          <span className="hidden items-center gap-1.5 lg:flex">
+            <span className="text-xs text-text-tertiary">字数统计</span>
+            <span className="num text-sm font-medium text-text-default">
+              {formatCount(
+                project.chapters.reduce((s, c) => s + (c.wordCount || 0), 0)
+              )}{" "}
+              字
+            </span>
+          </span>
+          <span className="hidden text-xs text-text-tertiary md:inline">模型</span>
+          <ModelPicker value={projectModel} onChange={handleModelChange} />
+          <ThinkingToggle />
+          <ProjectModeSwitcher
+            current={activeView}
+            onChange={handleViewChange}
+            pending={pending}
+          />
         </div>
-      )}
+      </header>
 
       {/* 三个视图同时挂载，但用 content-visibility: auto 让非激活视图跳过渲染 */}
       <div className="flex-1 min-h-0 overflow-hidden">
@@ -297,7 +363,7 @@ function ProjectWorkspaceImpl({ project, initialView }: Props) {
           aria-hidden={activeView !== "WORKBENCH"}
         >
           <div className="h-full flex flex-col">
-            <div className="flex-1 min-h-0 container py-2 flex flex-col">
+            <div className="flex-1 min-h-0 flex flex-col">
               <WorkbenchClient
                 project={project as unknown as React.ComponentProps<typeof WorkbenchClient>["project"]}
               />
@@ -316,12 +382,68 @@ function ProjectWorkspaceImpl({ project, initialView }: Props) {
           aria-hidden={activeView !== "CHAT"}
         >
           <div className="h-full flex flex-col">
-            <div className="flex-1 min-h-0 container py-2 flex flex-col">
+            <div className="flex-1 min-h-0 p-3.5 flex flex-col">
               <ChatCoCreateClient projectId={project.id} />
             </div>
           </div>
         </div>
       </div>
+      {/* 全书规模编辑弹窗 */}
+      <Dialog open={targetsDialogOpen} onOpenChange={setTargetsDialogOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-6">
+          <DialogHeader className="p-0 pr-8">
+            <DialogTitle>全书规划</DialogTitle>
+          </DialogHeader>
+          <p className="text-xs leading-relaxed text-text-tertiary">
+            设定目标章节数与每章字数后，大纲生成会把全书弧线与当前进度纳入规划，章节扩写会按每章字数控制篇幅。
+          </p>
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="target-chapters">目标章节数</Label>
+              <Input
+                id="target-chapters"
+                type="number"
+                min={1}
+                max={10000}
+                value={draftChapters}
+                onChange={(e) => setDraftChapters(e.target.value)}
+                placeholder="如 24"
+                className="border-border-neutral-l2"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="chapter-words">每章字数</Label>
+              <Input
+                id="chapter-words"
+                type="number"
+                min={100}
+                max={50000}
+                step={100}
+                value={draftWords}
+                onChange={(e) => setDraftWords(e.target.value)}
+                placeholder="如 2000"
+                className="border-border-neutral-l2"
+              />
+            </div>
+          </div>
+          {Number(draftChapters) > 0 && Number(draftWords) > 0 && (
+            <p className="num text-xs text-text-tertiary">
+              全书体量约 {((Number(draftChapters) * Number(draftWords)) / 10000).toFixed(1)} 万字
+            </p>
+          )}
+          <div className="flex justify-end gap-2 pt-1">
+            <Button
+              variant="outline"
+              onClick={() => setTargetsDialogOpen(false)}
+              className="border-border-neutral-l2 hover:bg-bg-overlay-l1"
+            >
+              取消
+            </Button>
+            <Button onClick={saveTargets}>保存</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* 风格选择弹窗 */}
       <Dialog open={styleDialogOpen} onOpenChange={setStyleDialogOpen}>
         <DialogContent className="max-w-lg rounded-2xl max-h-[80vh] overflow-y-auto">

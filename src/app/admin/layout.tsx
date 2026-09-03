@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
+import { prisma } from "@/lib/prisma";
 import { AdminSidebar } from "@/components/admin/admin-sidebar";
 
 /**
@@ -15,7 +16,12 @@ export default async function AdminLayout({
 }) {
   const session = await auth();
   if (!session?.user?.id) redirect("/login?callbackUrl=/admin");
-  if (session.user.role !== "ADMIN") redirect("/projects");
+  // 角色以数据库为准，JWT 里的 role 可能过期（降权立即生效）
+  const dbUser = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { role: true },
+  });
+  if (dbUser?.role !== "ADMIN") redirect("/projects");
 
   return (
     <div className="container py-6">

@@ -30,7 +30,12 @@ export function AppHeader() {
   const isLanding = pathname === "/";
   // 登录/注册页是全屏分栏布局（无顶部导航）
   const isAuthPage = pathname === "/login" || pathname === "/register";
-  if (isAuthPage) return null;
+  // 项目列表/回收站使用左侧应用壳层，项目工作台使用自绘顶栏
+  const isAppShell =
+    pathname === "/projects" ||
+    pathname === "/trash" ||
+    pathname.startsWith("/project/");
+  if (isAuthPage || isAppShell) return null;
 
   return (
     <header className="border-b border-border-neutral-l1 bg-bg-base-default/95 backdrop-blur sticky top-0 z-40">

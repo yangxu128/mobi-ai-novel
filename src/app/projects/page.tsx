@@ -14,7 +14,7 @@ export default async function ProjectsPage({
   const sp = await searchParams;
 
   const projects = await prisma.project.findMany({
-    where: { userId: user.id },
+    where: { userId: user.id, deletedAt: null },
     orderBy: { updatedAt: "desc" },
     select: {
       id: true,

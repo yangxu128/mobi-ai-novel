@@ -133,7 +133,7 @@ export function AdminUsersClient({
           />
         </div>
         <Select value={roleFilter || "all"} onValueChange={(v) => { setRoleFilter(v === "all" ? "" : v); navigate({ role: v === "all" ? "" : v, page: 1 }); }}>
-          <SelectTrigger className="w-32"><SelectValue placeholder="全部角色" /></SelectTrigger>
+          <SelectTrigger className="w-36 whitespace-nowrap"><SelectValue placeholder="全部角色" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部角色</SelectItem>
             <SelectItem value="ADMIN">ADMIN</SelectItem>
@@ -143,7 +143,7 @@ export function AdminUsersClient({
           </SelectContent>
         </Select>
         <Select value={planFilter || "all"} onValueChange={(v) => { setPlanFilter(v === "all" ? "" : v); navigate({ plan: v === "all" ? "" : v, page: 1 }); }}>
-          <SelectTrigger className="w-32"><SelectValue placeholder="全部订阅" /></SelectTrigger>
+          <SelectTrigger className="w-36 whitespace-nowrap"><SelectValue placeholder="全部订阅" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部订阅</SelectItem>
             <SelectItem value="FREE">FREE</SelectItem>

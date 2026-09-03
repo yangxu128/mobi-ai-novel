@@ -42,14 +42,20 @@ export async function registerAction(formData: FormData) {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
-  const user = await prisma.user.create({
-    data: {
-      email,
-      name,
-      passwordHash,
-      subscription: { create: { plan: "FREE", status: "active" } },
-    },
-  });
+  let user;
+  try {
+    user = await prisma.user.create({
+      data: {
+        email,
+        name,
+        passwordHash,
+        subscription: { create: { plan: "FREE", status: "active" } },
+      },
+    });
+  } catch {
+    // 并发注册同一邮箱触发唯一约束
+    return { ok: false, error: "该邮箱已注册" };
+  }
 
   // 自动登录
   try {

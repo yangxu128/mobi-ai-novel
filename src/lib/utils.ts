@@ -30,6 +30,31 @@ export function formatWordCount(count: number) {
   return `${(count / 10000).toFixed(1)} 万字`;
 }
 
+/** 千分位整数（卡片字数展示用：42,587 字） */
+export function formatCount(count: number) {
+  return count.toLocaleString("zh-CN");
+}
+
+/** 相对更新时间：今天/昨天带时刻，同年 MM/DD，跨年带年份 */
+export function formatUpdatedAt(date: Date | string | number) {
+  const d = new Date(date);
+  const now = new Date();
+  const hm = d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
+  if (d.toDateString() === now.toDateString()) return `今天 ${hm}`;
+  const yesterday = new Date(now);
+  yesterday.setDate(now.getDate() - 1);
+  if (d.toDateString() === yesterday.toDateString()) return `昨天 ${hm}`;
+  const sameYear = d.getFullYear() === now.getFullYear();
+  return d.toLocaleDateString("zh-CN", sameYear
+    ? { month: "2-digit", day: "2-digit" }
+    : { year: "numeric", month: "2-digit", day: "2-digit" });
+}
+
+/** 预计阅读时长（分钟），按 400 字/分钟估算 */
+export function readingMinutes(chars: number) {
+  return Math.max(1, Math.round(chars / 400));
+}
+
 export function truncate(text: string, max: number) {
   if (text.length <= max) return text;
   return text.slice(0, max) + "...";

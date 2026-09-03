@@ -2,8 +2,9 @@
  * scaffold.css - Layout, reset, typography utilities, shared atoms
  * Provides the page chrome consumed by preview/component-*.html and
  * ui_kits/*.html. Component-specific styles live in components.css.
+ * 注：外部字体 @import 已上移到 globals.css 顶部（CSS 规范要求
+ * @import 位于同一样式表所有规则之前，链式引入会使其失效）。
  */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@500;600&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 html, body {
   background: var(--bg-base-default);

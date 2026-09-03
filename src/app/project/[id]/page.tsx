@@ -49,6 +49,8 @@ export default async function ProjectPage({
         currentStep: true,
         synopsis: true,
         model: true,
+        targetChapters: true,
+        chapterWords: true,
         // 流水线 + 工作台 + 对话共创所需的所有字段
         worldSettings: {
           orderBy: { updatedAt: "desc" },
@@ -99,6 +101,7 @@ export default async function ProjectPage({
               select: {
                 id: true,
                 order: true,
+                volume: true,
                 sceneTitle: true,
                 sceneSummary: true,
                 plotPoints: true,

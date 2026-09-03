@@ -252,9 +252,9 @@ export function ChatCoCreateClientImpl({ projectId }: { projectId: string }) {
   const cards = session.extractedCards;
 
   return (
-    <div className="flex flex-1 min-h-0 -mx-4 lg:-mx-8">
-      {/* 主聊天区 */}
-      <div className="flex-1 flex flex-col px-4 lg:px-8">
+    <div className="flex flex-1 min-h-0 gap-3">
+      {/* 主聊天区（卡片式） */}
+      <div className="flex-1 flex flex-col rounded-2xl border border-border-neutral-l1 bg-bg-base-default shadow-[var(--shadow-card)] overflow-hidden px-4 lg:px-8">
         <div className="border-b border-border-neutral-l1 py-3 flex items-center justify-between">
           <div className="text-sm text-text-tertiary">
             共 {messages.filter((m) => m.role === "user").length} 轮对话
@@ -422,7 +422,7 @@ export function ChatCoCreateClientImpl({ projectId }: { projectId: string }) {
       </div>
 
       {/* 右侧已提取卡片 */}
-      <aside className="w-80 border-l border-border-neutral-l1 bg-bg-base-default hidden lg:flex flex-col">
+      <aside className="hidden w-80 shrink-0 flex-col rounded-2xl border border-border-neutral-l1 bg-bg-base-default shadow-[var(--shadow-card)] overflow-hidden lg:flex">
         <div className="p-3 border-b border-border-neutral-l1 flex items-center justify-between">
           <h3 className="text-sm font-semibold">已识别设定</h3>
           {cards.worldSettings?.length || cards.characters?.length ? (

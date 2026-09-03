@@ -5,6 +5,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
 import { authConfig } from "@/auth.config";
+import { rateLimit } from "@/lib/ai/rate-limit";
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
@@ -13,6 +14,9 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     GitHub({
       clientId: process.env.GITHUB_CLIENT_ID,
       clientSecret: process.env.GITHUB_CLIENT_SECRET,
+      // 允许与同邮箱的密码账号关联：否则先邮箱注册再用 GitHub 登录
+      // 会报 OAuthAccountNotLinked，用户被无提示地挡在登录外
+      allowDangerousEmailAccountLinking: true,
     }),
     Credentials({
       name: "邮箱密码",
@@ -20,10 +24,23 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         email: { label: "邮箱", type: "email" },
         password: { label: "密码", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const email = credentials?.email as string | undefined;
         const password = credentials?.password as string | undefined;
         if (!email || !password) return null;
+
+        // 限流：按 IP + 邮箱，5 分钟内最多 10 次，防暴力破解
+        const ip =
+          request?.headers
+            ?.get("x-forwarded-for")
+            ?.split(",")[0]
+            ?.trim() || "unknown";
+        const rl = rateLimit(
+          `login:${ip}:${email.toLowerCase()}`,
+          10,
+          5 * 60 * 1000
+        );
+        if (!rl.ok) return null;
 
         const user = await prisma.user.findUnique({
           where: { email },
@@ -44,12 +61,28 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     }),
   ],
   callbacks: {
-    // jwt/session/authorized 回调均在 authConfig 中定义，
-    // 这里不再重复定义，避免覆盖 authConfig 中的 Edge 兼容版本。
-    // authorized 回调用于 middleware 路由守卫
+    // jwt/authorized 回调沿用 authConfig 中的 Edge 兼容版本
     authorized: authConfig.callbacks.authorized,
     jwt: authConfig.callbacks.jwt,
-    session: authConfig.callbacks.session,
+    // session 回调在 Node 运行时执行：每次读取会话都从数据库核对最新角色，
+    // 使「管理员降权/封禁」立即生效（JWT 里的 role 只是登录时的缓存）。
+    // 用户记录已被删除时清空 id，视同未登录。
+    session: async ({ session, token }) => {
+      if (!session.user) return session;
+      const id = (token.id as string) || (token.sub as string);
+      session.user.id = id;
+      session.user.role = (token.role as string) ?? "FREE";
+      const dbUser = await prisma.user.findUnique({
+        where: { id },
+        select: { role: true },
+      });
+      if (!dbUser) {
+        session.user.id = "";
+        return session;
+      }
+      session.user.role = dbUser.role;
+      return session;
+    },
   },
 });
 

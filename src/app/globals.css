@@ -1,5 +1,7 @@
 /* TraeWork 设计系统入口
  * 顺序很重要：tokens → scaffold → components
+ * 注：外部字体（Noto Serif SC / Inter / JetBrains Mono）通过根布局的
+ * <link> 标签加载——CSS @import 会被 css-loader 重排到规则中间而失效。
  */
 @import "../styles/tokens.css";
 @import "../styles/scaffold.css";
@@ -744,7 +746,9 @@ a.ds-btn--warning:focus {
   margin: 1em 0 0.5em;
 }
 .prose-editor p {
-  margin: 0.75em 0;
+  margin: 1.15em 0;
+  /* 中文小说排版：段首缩进两字 */
+  text-indent: 2em;
 }
 .prose-editor blockquote {
   border-left: 3px solid var(--border-neutral-l2);
@@ -778,4 +782,194 @@ a.ds-btn--warning:focus {
   color: var(--text-brand);
   text-decoration: underline;
   text-underline-offset: 2px;
+}
+
+/* ═══════════════════════════════════════════════════════════════
+   Editorial Calm 应用壳层（项目列表 / 创作工作台）
+   ═══════════════════════════════════════════════════════════════ */
+
+/* 衬线展示标题：页面标题 / 项目名 / 章节标题 */
+.font-display {
+  font-family: var(--font-family-serif);
+}
+
+/* 侧边导航项（Editorial Calm：融于画布，大间距，圆角卡片式） */
+.nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 1rem;
+  padding: 0.625rem 1rem;
+  font-size: 0.9375rem;
+  color: var(--text-default);
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease;
+}
+.nav-item svg {
+  transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+.nav-item:hover svg {
+  transform: scale(1.12);
+}
+.nav-item:active svg {
+  transform: scale(0.94);
+}
+/* 收起态：仅图标的导航项（去掉左右内边距，避免挤压图标） */
+.nav-item--icon {
+  padding-left: 0;
+  padding-right: 0;
+  justify-content: center;
+}
+
+/* 侧边栏入场：自左轻滑入，交错延迟由 --d 传入 */
+.side-in {
+  opacity: 0;
+  transform: translateX(-16px);
+  animation: side-in 0.45s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+  animation-delay: var(--d, 0ms);
+}
+@keyframes side-in {
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+/* 侧边栏收起时文字淡出，避免宽度动画中文字挤压换行 */
+.side-fade {
+  transition: opacity 0.2s ease;
+  white-space: nowrap;
+}
+.side-collapsed .side-fade {
+  opacity: 0;
+  pointer-events: none;
+}
+.nav-item:hover {
+  background: var(--bg-overlay-l1);
+  color: var(--text-default);
+}
+.nav-item.is-active {
+  background: var(--bg-brand-wash);
+  color: var(--text-brand);
+  font-weight: 500;
+}
+.nav-item.is-active:hover {
+  background: var(--bg-brand-wash);
+}
+
+/* 顶栏胶囊搜索框 */
+.search-pill {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  height: 2.25rem;
+  width: 16rem;
+  padding: 0 0.875rem;
+  border-radius: 9999px;
+  border: 1px solid var(--border-neutral-l1);
+  background: var(--bg-base-default);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+}
+.search-pill:focus-within {
+  border-color: rgba(255, 122, 0, 0.45);
+  box-shadow: 0 0 0 3px rgba(255, 122, 0, 0.10);
+}
+.search-pill input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  font-size: 0.8125rem;
+  color: var(--text-default);
+}
+.search-pill input::placeholder {
+  color: var(--text-tertiary);
+}
+/* 知识库面板内的全宽变体 */
+.search-pill--full {
+  width: 100%;
+  height: 2.25rem;
+}
+
+/* 分段页签（工作台模式切换：暖橙选中胶囊） */
+.seg-group {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.25rem;
+  border-radius: 9999px;
+  background: var(--bg-overlay-l1);
+}
+.seg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  height: 1.875rem;
+  padding: 0 0.875rem;
+  border-radius: 9999px;
+  font-size: 0.8125rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  transition: background 0.18s ease, color 0.18s ease, box-shadow 0.18s ease;
+}
+.seg-item:hover {
+  color: var(--text-default);
+}
+.seg-item.is-active {
+  background: var(--bg-brand-wash);
+  color: var(--text-brand);
+  font-weight: 500;
+}
+
+/* 章节目录行 */
+.chapter-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.5rem 0.625rem;
+  border-radius: 0.625rem;
+  font-size: 0.8125rem;
+  color: var(--text-default);
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease;
+}
+.chapter-row:hover {
+  background: var(--bg-overlay-l1);
+}
+.chapter-row.is-active {
+  background: var(--bg-brand-wash);
+  color: var(--text-brand);
+  font-weight: 500;
+}
+.chapter-row.is-active:hover {
+  background: var(--bg-brand-wash);
+}
+
+/* 知识库面板页签 */
+.kb-tab {
+  position: relative;
+  padding: 0.625rem 0.125rem;
+  font-size: 0.8125rem;
+  color: var(--text-tertiary);
+  transition: color 0.15s ease;
+}
+.kb-tab:hover {
+  color: var(--text-default);
+}
+.kb-tab.is-active {
+  color: var(--text-default);
+  font-weight: 500;
+}
+.kb-tab.is-active::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 2px;
+  border-radius: 2px;
+  background: var(--bg-brand);
 }

@@ -7,9 +7,32 @@ import { signIn } from "next-auth/react";
 import { Github } from "lucide-react";
 import { AuthArtworkPanel } from "@/components/auth/auth-artwork-panel";
 
+/** 只允许站内跳转，防开放重定向（如 ?callbackUrl=https://evil.com）。
+ * 相对路径直接放行；绝对地址仅当与当前站点同源时放行
+ * （middleware 的登录回跳会带同源绝对地址）。 */
+function safeCallbackUrl(url: string | null): string {
+  try {
+    if (!url) return "/projects";
+    if (
+      url.startsWith("/") &&
+      !url.startsWith("//") &&
+      !url.startsWith("/\\")
+    ) {
+      return url;
+    }
+    const parsed = new URL(url, window.location.origin);
+    if (parsed.origin === window.location.origin) {
+      return parsed.pathname + parsed.search + parsed.hash;
+    }
+    return "/projects";
+  } catch {
+    return "/projects";
+  }
+}
+
 function LoginForm() {
   const params = useSearchParams();
-  const callbackUrl = params.get("callbackUrl") || "/projects";
+  const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");

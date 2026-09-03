@@ -32,49 +32,54 @@ import {
   Code,
   Search,
   HelpCircle,
-  ChevronDown,
   CheckCircle2,
   CircleDashed,
-  ListChecks,
 } from "lucide-react";
 import { useAIStream } from "@/hooks/use-ai-stream";
 import { saveChapterContentAction } from "@/actions/chapter";
 import { toast } from "@/components/ui/toast";
-import { formatWordCount, cn } from "@/lib/utils";
+import { formatCount, readingMinutes, cn } from "@/lib/utils";
 
 const AI_ACTIONS = ["续写", "扩写", "润色", "改写", "压缩", "古文风格"] as const;
-
-interface OutlineHint {
-  sceneSummary?: string | null;
-  plotPoints?: unknown;
-}
 
 interface Props {
   chapterId: string;
   projectId: string;
   initialTitle: string;
   initialContent: string;
-  outline?: OutlineHint | null;
   onSaveTitle?: (title: string) => void;
 }
 
 type SaveStatus = "idle" | "dirty" | "saving" | "saved";
 
 /**
+ * 规范化章节 HTML：把段落内的 <br> 升级为真正的段落边界（</p><p>）。
+ * 流水线生成的正文是「单 <p> + 多 <br>」，导致首行缩进与段距失效；
+ * 中文小说每行即一段，这里统一拆分为独立 <p>，空段落一并清除。
+ */
+function normalizeParagraphs(html: string): string {
+  if (!html) return "";
+  const split = html.replace(/<br\s*\/?>/gi, "</p><p>");
+  return split
+    .replace(/<p>(\s|&nbsp;)*<\/p>/gi, "")
+    .replace(/(<\/p>)\s*(<p>)/gi, "$1$2");
+}
+
+/**
  * 章节正文编辑器（TipTap）
  *
  * 布局：
- *   [大纲提示条（可选）]   <- 有 outline 时显示
- *   [标题输入] [格式化工具栏] [AI ⌘K] [?]   <- 顶栏
+ *   [格式化工具栏]          <- 顶栏
+ *   [衬线大标题]
  *   [TipTap 编辑区 + 选中悬浮 AI]
- *   [字数 · 保存状态]      <- 底栏
+ *   [字数 · 预计阅读 · 保存状态]  <- 底栏
+ *   本章大纲在右侧知识库「情节大纲」页签中查看
  */
 export function TipTapEditor({
   chapterId,
   projectId,
   initialTitle,
   initialContent,
-  outline,
   onSaveTitle,
 }: Props) {
   const [title, setTitle] = useState(initialTitle);
@@ -85,7 +90,6 @@ export function TipTapEditor({
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState("");
   const [contextText, setContextText] = useState("");
-  const [showOutline, setShowOutline] = useState(!!outline?.sceneSummary);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
@@ -98,22 +102,22 @@ export function TipTapEditor({
       }),
       CharacterCount,
     ],
-    content: initialContent || "",
+    content: normalizeParagraphs(initialContent || ""),
     immediatelyRender: false,
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm max-w-none min-h-[60vh] focus:outline-none leading-relaxed font-serif",
+          "prose-editor max-w-none min-h-[60vh] focus:outline-none text-[15px] leading-[2.3] tracking-[0.01em]",
       },
     },
   });
 
   // 外部内容更新（其他视图保存后 router.refresh 同步到 props）：
   // 本地没有未保存修改时，把新内容应用到编辑器
-  const appliedContentRef = useRef(initialContent || "");
+  const appliedContentRef = useRef(normalizeParagraphs(initialContent || ""));
   useEffect(() => {
     if (!editor) return;
-    const incoming = initialContent || "";
+    const incoming = normalizeParagraphs(initialContent || "");
     if (incoming === appliedContentRef.current) return;
     if (saveStatus === "dirty" || saveStatus === "saving") return;
     appliedContentRef.current = incoming;
@@ -246,76 +250,26 @@ export function TipTapEditor({
 
   const wordCount = editor?.storage.characterCount?.characters() || 0;
 
-  // 解析 outline 的 plotPoints（可能是 JSON 字符串或数组）
-  const plotPoints = (() => {
-    if (!outline?.plotPoints) return [];
-    if (Array.isArray(outline.plotPoints)) return outline.plotPoints as string[];
-    if (typeof outline.plotPoints === "string") {
-      try {
-        const parsed = JSON.parse(outline.plotPoints);
-        return Array.isArray(parsed) ? parsed : [];
-      } catch {
-        return [];
-      }
-    }
-    return [];
-  })();
-
   return (
     <div className="flex flex-col h-full">
-      {/* 大纲提示条：有 outline 时可折叠 */}
-      {outline?.sceneSummary && (
-        <div className="border-b border-border-neutral-l1 bg-bg-overlay-l1/60">
-          <div className="mx-auto w-full max-w-[920px] px-8 py-2">
-            <button
-              type="button"
-              onClick={() => setShowOutline((v) => !v)}
-              className="w-full flex items-start gap-2 text-xs text-text-tertiary hover:text-text-default transition-colors text-left"
-            >
-              <ChevronDown
-                className={cn(
-                  "h-3.5 w-3.5 transition-transform shrink-0 mt-0.5",
-                  !showOutline && "-rotate-90"
-                )}
-              />
-              <ListChecks className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-              <span className="font-medium shrink-0">本章大纲</span>
-              <span className="text-text-tertiary/60 shrink-0">·</span>
-              <span className="flex-1 whitespace-normal break-words">{outline.sceneSummary}</span>
-            </button>
-            {showOutline && plotPoints.length > 0 && (
-              <ul className="mt-2 pl-7 space-y-1 text-xs text-text-tertiary">
-                {plotPoints.map((p, i) => (
-                  <li key={i} className="flex gap-2">
-                    <span className="text-text-tertiary shrink-0">{i + 1}.</span>
-                    <span className="flex-1 whitespace-normal break-words">{p}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
+      {/* 顶栏：格式化工具栏（全宽，章节标题在正文区为衬线大字） */}
+      <div className="shrink-0 border-b border-border-neutral-l1 bg-bg-base-default">
+        <div className="flex items-center gap-1 px-4 py-1.5">
+          <FormatToolbar editor={editor} onAI={openAIPanel} />
         </div>
-      )}
-
-      {/* 顶栏：标题 + 格式化工具栏 + AI + 帮助 */}
-      <div className="border-b border-border-neutral-l1 bg-bg-base-default">
-        <div className="mx-auto w-full max-w-[920px] px-8">
-          <div className="flex items-center gap-2 py-2">
-            <Input
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              onBlur={() => onSaveTitle?.(title)}
-              className="h-8 text-base font-medium border-transparent hover:border-input focus-visible:border-input max-w-xs"
-              placeholder="章节标题"
-            />
-          </div>
-        </div>
-        <FormatToolbar editor={editor} onAI={openAIPanel} />
       </div>
 
       {/* 编辑区 */}
-      <div className="flex-1 min-h-0 overflow-auto bg-bg-base-default">
-        <div className="mx-auto w-full max-w-[920px] px-8 py-6">
+      <div className="min-h-0 flex-1 overflow-auto bg-bg-base-default">
+        <div className="mx-auto w-full max-w-[820px] px-9 pb-16 pt-9">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            onBlur={() => onSaveTitle?.(title)}
+            placeholder="章节标题"
+            className="font-display w-full bg-transparent text-[30px] font-semibold leading-snug text-text-default placeholder:text-text-disabled focus:outline-none"
+          />
+          <div className="mb-7 mt-5 h-px bg-border-neutral-l1" />
           <EditorContent editor={editor} className="prose-editor" />
         {/* 选中文字时显示悬浮 AI 按钮 */}
         {editor && (
@@ -338,11 +292,16 @@ export function TipTapEditor({
         </div>
       </div>
 
-      {/* 底栏：字数 + 保存按钮 + 保存状态 */}
-      <div className="border-t border-border-neutral-l1 bg-bg-base-default">
-        <div className="mx-auto w-full max-w-[920px] px-8 py-1.5 flex items-center justify-between text-xs text-text-tertiary">
-          <span>{formatWordCount(wordCount)}</span>
+      {/* 底栏：字数 · 预计阅读 + 保存状态 */}
+      <div className="shrink-0 border-t border-border-neutral-l1 bg-bg-base-default">
+        <div className="flex items-center justify-between px-6 py-2.5 text-xs text-text-tertiary">
+          <div className="flex items-center gap-2">
+            <span className="num text-text-secondary">{formatCount(wordCount)} 字</span>
+            <span>·</span>
+            <span>预计阅读 {readingMinutes(wordCount)} 分钟</span>
+          </div>
           <div className="flex items-center gap-3">
+            <SaveIndicator status={saveStatus} savedAt={savedAt} />
             <button
               onClick={manualSave}
               disabled={saveStatus === "saving"}
@@ -350,7 +309,6 @@ export function TipTapEditor({
             >
               {saveStatus === "saving" ? "保存中..." : "保存"}
             </button>
-            <SaveIndicator status={saveStatus} savedAt={savedAt} />
           </div>
         </div>
       </div>
@@ -435,7 +393,7 @@ function FormatToolbar({
   const btnActive = "bg-bg-brand text-text-onbrand hover:bg-bg-brand-hover";
 
   return (
-    <div className="flex items-center gap-1 px-2 py-1.5 border-t border-border-neutral-l1 flex-wrap">
+    <div className="flex items-center gap-1 flex-wrap">
       {/* 撤销/重做 */}
       <ToolbarBtn
         onClick={() => editor.chain().focus().undo().run()}
@@ -587,13 +545,12 @@ function FormatToolbar({
       {/* AI */}
       <Button
         size="sm"
-        variant="outline"
-        className="h-7 ml-1 border-border-neutral-l2 hover:bg-bg-overlay-l1"
+        className="h-7 ml-1 border-transparent bg-bg-brand text-text-onbrand shadow-[0_2px_8px_rgba(240,94,0,0.25)] hover:bg-bg-brand-hover"
         onClick={onAI}
       >
         <Sparkles className="h-3.5 w-3.5" />
         AI
-        <kbd className="ml-1 text-[10px] px-1 py-0.5 rounded bg-bg-overlay-l1 text-text-secondary">
+        <kbd className="ml-1 rounded bg-white/25 px-1 py-0.5 text-[10px] font-normal text-white">
           ⌘K
         </kbd>
       </Button>
@@ -768,7 +725,13 @@ function SaveIndicator({
     return (
       <span className="inline-flex items-center gap-1 text-status-success">
         <CheckCircle2 className="h-3 w-3" />
-        已保存 · {savedAt.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
+        自动保存于{" "}
+        {savedAt.toLocaleTimeString("zh-CN", {
+          hour: "2-digit",
+          minute: "2-digit",
+          second: "2-digit",
+          hour12: false,
+        })}
       </span>
     );
   }

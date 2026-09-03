@@ -529,3 +529,17 @@
   --shadow-glow: 0 2px 6px rgba(240, 94, 0, 0.20), 0 10px 28px rgba(255, 122, 0, 0.32);
   --shadow-glow-hover: 0 4px 10px rgba(240, 94, 0, 0.24), 0 14px 36px rgba(255, 122, 0, 0.40);
 }
+
+/* ============================================================
+   2026-08「Editorial Calm」应用壳层主题
+   浅灰画布（与首页同族）+ 白卡片 + 衬线标题，用于项目列表与创作工作台
+   ============================================================ */
+:root {
+  /* 画布：与首页背景同族的浅灰，白卡片在其上有轻微层次 */
+  --bg-canvas: #F7F7F5;
+  --bg-canvas-deep: #EFEFED;
+  /* 衬线展示字体：页面标题 / 项目名 / 章节标题 */
+  --font-family-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, "华文中宋", STZhongsong, SimSun, serif;
+  /* 选中态暖橙底（导航项 / 章节行） */
+  --bg-brand-wash: #FFF3E6;
+}

@@ -120,7 +120,7 @@ export function AdminProjectsClient({
             navigate({ mode: v === "all" ? "" : v, page: 1 });
           }}
         >
-          <SelectTrigger className="w-32"><SelectValue placeholder="全部模式" /></SelectTrigger>
+          <SelectTrigger className="w-36 whitespace-nowrap"><SelectValue placeholder="全部模式" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="all">全部模式</SelectItem>
             <SelectItem value="PIPELINE">流水线</SelectItem>

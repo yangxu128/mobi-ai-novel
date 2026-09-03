@@ -43,12 +43,17 @@ export async function listProjectsAction(): Promise<ProjectListItem[]> {
   return projects;
 }
 
+type ActionResult = { ok: true } | { ok: false; error: string };
+
 const createSchema = z.object({
   title: z.string().min(1, "标题不能为空").max(80, "标题最多 80 字"),
   genre: z.string().min(1),
   mode: z.enum(["PIPELINE", "WORKBENCH", "CHAT"]),
   synopsis: z.string().optional(),
   styleProfile: z.any().optional(),
+  // 全书规模（可选）：大纲规划的整体观来源
+  targetChapters: z.coerce.number().int().min(1, "章节数至少为 1").max(10000).optional(),
+  chapterWords: z.coerce.number().int().min(100, "每章字数至少 100").max(50000).optional(),
 });
 
 export async function createProjectAction(formData: FormData) {
@@ -61,6 +66,8 @@ export async function createProjectAction(formData: FormData) {
     mode: formData.get("mode"),
     synopsis: formData.get("synopsis") || undefined,
     styleProfile: formData.get("styleProfile") ? JSON.parse(formData.get("styleProfile") as string) : undefined,
+    targetChapters: formData.get("targetChapters") || undefined,
+    chapterWords: formData.get("chapterWords") || undefined,
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.errors[0].message };
@@ -80,6 +87,8 @@ export async function createProjectAction(formData: FormData) {
       mode: parsed.data.mode,
       synopsis: parsed.data.synopsis || null,
       styleProfile: parsed.data.styleProfile ?? null,
+      targetChapters: parsed.data.targetChapters ?? null,
+      chapterWords: parsed.data.chapterWords ?? null,
     },
   });
 
@@ -109,6 +118,62 @@ export async function deleteProjectAction(projectId: string) {
     data: { deletedAt: new Date() },
   });
   revalidatePath("/projects");
+  return { ok: true };
+}
+
+/** 更新全书规模目标（章节数/每章字数），供大纲整体规划与扩写篇幅控制 */
+export async function updateProjectTargetsAction(
+  projectId: string,
+  targets: { targetChapters?: number | null; chapterWords?: number | null }
+): Promise<ActionResult> {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "未登录" };
+
+  const clean = {
+    targetChapters:
+      targets.targetChapters != null && targets.targetChapters > 0
+        ? Math.min(10000, Math.round(targets.targetChapters))
+        : null,
+    chapterWords:
+      targets.chapterWords != null && targets.chapterWords > 0
+        ? Math.min(50000, Math.round(targets.chapterWords))
+        : null,
+  };
+
+  const res = await prisma.project.updateMany({
+    where: { id: projectId, userId: user.id, deletedAt: null },
+    data: clean,
+  });
+  if (res.count === 0) return { ok: false, error: "项目不存在或无权限" };
+  revalidatePath("/projects");
+  return { ok: true };
+}
+
+/** 从回收站恢复项目 */
+export async function restoreProjectAction(projectId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "未登录" };
+
+  const res = await prisma.project.updateMany({
+    where: { id: projectId, userId: user.id, deletedAt: { not: null } },
+    data: { deletedAt: null },
+  });
+  if (res.count === 0) return { ok: false, error: "项目不存在或不在回收站" };
+  revalidatePath("/trash");
+  revalidatePath("/projects");
+  return { ok: true };
+}
+
+/** 彻底删除（物理删除，级联清理所有关联数据），仅在回收站可用 */
+export async function purgeProjectAction(projectId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "未登录" };
+
+  const res = await prisma.project.deleteMany({
+    where: { id: projectId, userId: user.id, deletedAt: { not: null } },
+  });
+  if (res.count === 0) return { ok: false, error: "项目不存在或不在回收站" };
+  revalidatePath("/trash");
   return { ok: true };
 }
 

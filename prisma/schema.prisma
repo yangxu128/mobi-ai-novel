@@ -95,6 +95,8 @@ model Project {
   wordCount   Int           @default(0)
   coverImage  String?
   model       String?       // 项目级 AI 模型选择，null 时回退到 DEFAULT_MODEL
+  targetChapters Int?       // 全书目标章节数（立项时设定，供大纲规划整体节奏）
+  chapterWords   Int?       // 每章目标字数（供扩写控制篇幅）
   deletedAt   DateTime?
   worldSettings WorldSetting[]
   characters  Character[]

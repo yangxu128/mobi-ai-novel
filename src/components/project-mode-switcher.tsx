@@ -1,10 +1,7 @@
 "use client";
 
-import { useEffect, useState, useTransition, useRef, useCallback } from "react";
-import dynamic from "next/dynamic";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Workflow, PenLine, MessageSquare, Loader2 } from "lucide-react";
-import { updateProjectModeAction } from "@/actions/project";
+import { Loader2 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 /**
  * 项目模式切换器 - 客户端状态切换版本
@@ -12,12 +9,13 @@ import { updateProjectModeAction } from "@/actions/project";
  * 不再走 router.push，而是通过 props.onChange 通知父组件切换视图。
  * 父组件 ProjectWorkspace 在客户端通过 setState 切换，
  * 配合 history.replaceState 同步 URL，避免触发 Server Component 重新执行。
+ * 样式为「Editorial Calm」下划线页签：选中项橙色文字 + 底部橙色指示条。
  */
 
 export const VIEW_MODES = [
-  { key: "PIPELINE", label: "流水线", icon: Workflow, query: "pipeline" },
-  { key: "WORKBENCH", label: "工作台", icon: PenLine, query: "workbench" },
-  { key: "CHAT", label: "对话共创", icon: MessageSquare, query: "chat" },
+  { key: "PIPELINE", label: "流水线", query: "pipeline" },
+  { key: "WORKBENCH", label: "工作台", query: "workbench" },
+  { key: "CHAT", label: "对话共创", query: "chat" },
 ] as const;
 
 export type ViewMode = "PIPELINE" | "WORKBENCH" | "CHAT";
@@ -34,28 +32,30 @@ export function ProjectModeSwitcher({ current, onChange, pending }: Props) {
   const displayValue = isPending ? (pending as ViewMode) : current;
 
   return (
-    <Tabs value={displayValue} onValueChange={(v) => onChange(v as ViewMode)}>
-      <TabsList className={isPending ? "opacity-90" : ""}>
-        {VIEW_MODES.map((m) => {
-          const Icon = m.icon;
-          const isLoading = isPending && pending === m.key;
-          return (
-            <TabsTrigger
-              key={m.key}
-              value={m.key}
-              className="gap-1.5"
-              disabled={isPending}
-            >
-              {isLoading ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Icon className="h-3.5 w-3.5" />
-              )}
-              {m.label}
-            </TabsTrigger>
-          );
-        })}
-      </TabsList>
-    </Tabs>
+    <div className="flex items-center gap-0.5 rounded-lg bg-bg-overlay-l1 p-1" role="tablist" aria-label="切换创作模式">
+      {VIEW_MODES.map((m) => {
+        const isLoading = isPending && pending === m.key;
+        const active = displayValue === m.key;
+        return (
+          <button
+            key={m.key}
+            type="button"
+            role="tab"
+            aria-selected={active}
+            disabled={isPending}
+            onClick={() => onChange(m.key)}
+            className={cn(
+              "flex h-8 items-center gap-1.5 rounded-md px-3.5 text-[13px] transition-colors disabled:cursor-not-allowed",
+              active
+                ? "bg-bg-base-default font-medium text-text-brand shadow-[0_1px_3px_rgba(26,26,26,0.08)]"
+                : "text-text-secondary hover:text-text-default"
+            )}
+          >
+            {isLoading && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
+            {m.label}
+          </button>
+        );
+      })}
+    </div>
   );
 }
