@@ -7,6 +7,7 @@ import type { AIMessage } from "./provider";
 import { buildSystemBase } from "./style";
 import type { StyleProfile } from "./style";
 import { getWorldbuildSlots, getGenreMode, isRelationshipStory } from "@/lib/genre";
+import type { StoryStateContext } from "@/types/memory";
 
 export interface KnowledgeContext {
   worldSettings: Array<{ title: string; content: string; category: string }>;
@@ -24,6 +25,8 @@ export interface KnowledgeContext {
     sceneSummary: string;
     plotPoints: string[];
   };
+  /** 故事状态卡（记忆 wiki）：动态角色状态 + 伏笔生命周期 + 关键事件时间线 */
+  storyState?: StoryStateContext;
 }
 
 function formatKnowledge(ctx: KnowledgeContext | undefined): string {
@@ -45,6 +48,30 @@ function formatKnowledge(ctx: KnowledgeContext | undefined): string {
       if (c.personality) lines.push(`性格：${c.personality}`);
       if (c.background) lines.push(`背景：${c.background}`);
       if (c.motivation) lines.push(`动机：${c.motivation}`);
+      // 记忆 wiki：同名角色的动态状态卡，覆盖开书时的静态快照
+      const live = ctx.storyState?.characterStates.find(
+        (s) => s.name === c.name
+      );
+      if (live) {
+        const st = [`【当前状态（截至第${live.lastSeenChapterNo ?? "?"}章）】`];
+        if (live.location) st.push(`所在地：${live.location}`);
+        if (live.status) st.push(`处境：${live.status}`);
+        if (live.goal) st.push(`当前目标：${live.goal}`);
+        if (live.relationChanges && live.relationChanges.length > 0) {
+          st.push(
+            `关系动态：\n` +
+              live.relationChanges
+                .map(
+                  (r) =>
+                    `  - 对${r.target}：${r.change}${
+                      r.chapterNo != null ? `（第${r.chapterNo}章）` : ""
+                    }`
+                )
+                .join("\n")
+          );
+        }
+        lines.push(st.join("\n"));
+      }
       parts.push(lines.join("\n"));
     }
   }
@@ -67,6 +94,37 @@ function formatKnowledge(ctx: KnowledgeContext | undefined): string {
         parts.push(`### ${ch.title}\n${ch.content}`);
       } else if (ch.summary) {
         parts.push(`### ${ch.title}（摘要）\n${ch.summary}`);
+      }
+    }
+  }
+
+  if (ctx.storyState) {
+    const ss = ctx.storyState;
+
+    if (ss.keyEvents.length > 0) {
+      parts.push("\n## 前文关键事件（时间线，防遗忘早期剧情）");
+      for (const ev of ss.keyEvents) {
+        parts.push(`- 第${ev.chapterNo}章：${ev.content}`);
+      }
+    }
+
+    if (ss.openForeshadows.length > 0) {
+      parts.push(
+        `\n## ⚠️ 待回收伏笔（共${ss.openForeshadows.length}条）——若当前大纲指向回收，本章必须执行`
+      );
+      for (const f of ss.openForeshadows) {
+        parts.push(
+          `- ${f.title}${
+            f.plantedChapterNo ? `（第${f.plantedChapterNo}章埋设）` : ""
+          }：${f.content}`
+        );
+      }
+    }
+
+    if (ss.resolvedForeshadows.length > 0) {
+      parts.push("\n## 已回收伏笔（禁止重复回收或写出矛盾）");
+      for (const f of ss.resolvedForeshadows) {
+        parts.push(`- ${f.title}（第${f.resolvedChapterNo ?? "?"}章已回收）`);
       }
     }
   }
@@ -503,7 +561,7 @@ export function consistencyCheckPrompt(
   return [
     {
       role: "system",
-      content: `${buildSystemBase(styleProfile)}\n你现在的任务是做一致性检查，扫描章节正文，找出与世界观/角色设定矛盾的地方。`,
+      content: `${buildSystemBase(styleProfile)}\n你现在的任务是做一致性检查，扫描章节正文，找出与世界观/角色设定矛盾的地方。除设定矛盾外，还需检查伏笔一致性：正文是否重复回收"已回收伏笔"清单中的伏笔，或让"待回收伏笔"与本章内容产生矛盾。`,
     },
     {
       role: "user",
@@ -553,6 +611,49 @@ export function analyzeStylePrompt(sampleText: string): AIMessage[] {
     {
       role: "user",
       content: `请分析以下文本的文笔风格特征，从语言节奏、句式偏好、对话风格、画面感、情感处理、意象偏好等维度进行描述，输出 200-300 字的风格特征摘要。\n\n文本样本：\n${sampleText}\n\n直接输出风格特征描述，不要任何解释或前言。`,
+    },
+  ];
+}
+
+// ============ 记忆 wiki 提取 ============
+
+/**
+ * 记忆提取：一次 LLM 调用合并输出章节摘要 + 事件 + 角色状态增量 + 伏笔增减。
+ * 输出契约见 src/types/memory.ts 的 WikiExtractResult。
+ */
+export function wikiExtractPrompt(opts: {
+  chapterNo: number;
+  chapterTitle: string;
+  chapterContent: string;
+  characterNames: string[];
+  openForeshadows: Array<{ title: string; content: string }>;
+}): AIMessage[] {
+  const nameList =
+    opts.characterNames.length > 0
+      ? opts.characterNames.join("、")
+      : "（暂无登记角色，所有出场人物都提取）";
+  const fsList =
+    opts.openForeshadows.length > 0
+      ? opts.openForeshadows
+          .map((f) => `- ${f.title}：${f.content}`)
+          .join("\n")
+      : "（无）";
+
+  // 超长正文截断，防 token 爆炸
+  const content =
+    opts.chapterContent.length > 8000
+      ? opts.chapterContent.slice(0, 8000)
+      : opts.chapterContent;
+
+  return [
+    {
+      role: "system",
+      content:
+        "你是小说项目的记忆管理员。阅读章节正文，提取结构化记忆。只输出严格 JSON，不要 markdown 代码块、解释或额外文字。",
+    },
+    {
+      role: "user",
+      content: `【第${opts.chapterNo}章《${opts.chapterTitle}》正文】\n${content}\n\n【已登记角色名单】\n${nameList}\n\n【当前待回收伏笔清单】\n${fsList}\n\n请提取本记忆并严格按如下 JSON 结构输出：\n\n{"summary":"200字内章节摘要，聚焦主线推进与人物关系变化","events":[{"content":"谁做了什么（一句话）","characters":["出场角色名"],"key":false}],"characterUpdates":[{"name":"角色名（必须来自名单）","location":"当前所在地（可空串）","status":"当前处境（受伤/身份变化/情绪态势等，可空串）","goal":"当前目标（可空串）","relationChanges":[{"target":"对象名（必须来自名单）","change":"关系变化一句话"}]}],"foreshadows":{"new":[{"title":"不超过12字的新埋伏笔短标题","content":"伏笔内容与回收指向"}],"resolved":["照抄清单中被本章回收的伏笔标题"]}}\n\n规则：\n1. events 最多 8 条，只记录影响后续剧情的事件，日常过渡不记；影响主线走向的用 key=true\n2. characterUpdates 只允许名单内角色，名单外人物一律忽略\n3. 伏笔 new 不得与清单中现有伏笔含义重复；resolved 必须原样照抄清单中的标题，清单外的一律忽略\n4. 所有可空字段空值用空串，不要输出 null\n5. 只输出 JSON`,
     },
   ];
 }

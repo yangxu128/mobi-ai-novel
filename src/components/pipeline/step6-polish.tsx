@@ -100,7 +100,7 @@ export function Step6Polish({
     await onSave();
     const res = await markChapterFinalAction(activeChapter.id);
     if (res.ok) {
-      toast({ title: "已标记为定稿", description: "已生成摘要供后续章节检索", type: "success" });
+      toast({ title: "已标记为定稿", description: "本章记忆将在后台更新（摘要/事件/角色状态/伏笔）", type: "success" });
     } else {
       toast({ title: "标记失败", description: res.error, type: "error" });
     }

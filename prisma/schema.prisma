@@ -94,9 +94,10 @@ model Project {
   status      ProjectStatus @default(draft)
   wordCount   Int           @default(0)
   coverImage  String?
-  model       String?       // 项目级 AI 模型选择，null 时回退到 DEFAULT_MODEL
+  model      String?       // 项目级 AI 模型选择，null 时回退到 DEFAULT_MODEL
   targetChapters Int?       // 全书目标章节数（立项时设定，供大纲规划整体节奏）
   chapterWords   Int?       // 每章目标字数（供扩写控制篇幅）
+  autoMemory  Boolean       @default(true) // 保存章节后自动提取记忆 wiki（配额不足时静默跳过）
   deletedAt   DateTime?
   worldSettings WorldSetting[]
   characters  Character[]
@@ -104,6 +105,9 @@ model Project {
   chapters    Chapter[]
   chatSessions ChatSession[]
   aiUsageLogs AIUsageLog[]
+  storyEvents StoryEvent[]
+  foreshadows Foreshadow[]
+  characterStates CharacterState[]
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
@@ -154,8 +158,9 @@ model Character {
   motivation    String?
   arc           String?
   relationships Json          @default("[]")
-  deletedAt     DateTime?
-  version       Int           @default(1)
+  characterStates CharacterState[]
+  deletedAt   DateTime?
+  version     Int                  @default(1)
   createdAt     DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
 
@@ -199,6 +204,9 @@ model Chapter {
   wordCount   Int           @default(0)
   status      ChapterStatus @default(draft)
   summary     String?
+  storyEvents     StoryEvent[]
+  foreshadowsPlanted   Foreshadow[] @relation("ForeshadowPlanted")
+  foreshadowsResolved  Foreshadow[] @relation("ForeshadowResolved")
   deletedAt   DateTime?
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
@@ -206,6 +214,77 @@ model Chapter {
   @@index([projectId])
   @@index([projectId, createdAt])
   @@map("chapters")
+}
+
+// ============ 记忆 wiki（LLM 提取的结构化故事状态） ============
+
+enum StoryEventSource {
+  chapter
+  chat
+}
+
+enum ForeshadowStatus {
+  open
+  resolved
+  abandoned
+}
+
+model StoryEvent {
+  id          String           @id @default(uuid()) @db.Uuid
+  projectId   String           @db.Uuid
+  project     Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  chapterId   String?          @db.Uuid
+  chapter     Chapter?         @relation(fields: [chapterId], references: [id], onDelete: Cascade)
+  chapterNo   Int              @default(0)
+  source      StoryEventSource @default(chapter)
+  content     String
+  characters  Json             @default("[]")
+  key         Boolean          @default(false)
+  order       Float            @default(0)
+  deletedAt   DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+
+  @@index([projectId, chapterNo])
+  @@index([chapterId])
+  @@map("story_events")
+}
+
+model Foreshadow {
+  id                String           @id @default(uuid()) @db.Uuid
+  projectId         String           @db.Uuid
+  project           Project          @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  title             String
+  content           String           @default("")
+  status            ForeshadowStatus @default(open)
+  plantedChapterId  String?          @db.Uuid
+  plantedChapter    Chapter?         @relation("ForeshadowPlanted", fields: [plantedChapterId], references: [id], onDelete: SetNull)
+  plantedChapterNo  Int?
+  resolvedChapterId String?          @db.Uuid
+  resolvedChapter   Chapter?         @relation("ForeshadowResolved", fields: [resolvedChapterId], references: [id], onDelete: SetNull)
+  resolvedChapterNo Int?
+  deletedAt         DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+
+  @@index([projectId, status])
+  @@index([plantedChapterId])
+  @@map("foreshadows")
+}
+
+model CharacterState {
+  id          String    @id @default(uuid()) @db.Uuid
+  projectId   String    @db.Uuid
+  project     Project   @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  characterId String    @unique @db.Uuid
+  character   Character @relation(fields: [characterId], references: [id], onDelete: Cascade)
+  current     Json      @default("{}")
+  deletedAt   DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([projectId])
+  @@map("character_states")
 }
 
 enum ChatSessionStatus {

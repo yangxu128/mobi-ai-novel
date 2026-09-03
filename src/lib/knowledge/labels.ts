@@ -33,3 +33,9 @@ export const roleLabel: Record<string, string> = {
   ANTAGONIST: "反派",
   EXTRA: "路人",
 };
+
+export const foreshadowStatusLabel: Record<string, string> = {
+  open: "待回收",
+  resolved: "已回收",
+  abandoned: "已放弃",
+};

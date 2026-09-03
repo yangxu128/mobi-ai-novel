@@ -1,10 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { chat as aiChat } from "@/lib/ai/provider";
-import { summaryPrompt } from "@/lib/ai/prompts";
+import { extractChapterWiki } from "@/lib/ai/wiki";
 
 /**
  * 章节相关 Server Actions。
@@ -16,7 +16,9 @@ export async function saveChapterContentAction(chapterId: string, content: strin
 
   const chapter = await prisma.chapter.findUnique({
     where: { id: chapterId },
-    include: { project: { select: { userId: true } } },
+    include: {
+      project: { select: { userId: true, id: true, autoMemory: true } },
+    },
   });
   if (!chapter || chapter.project.userId !== user.id) {
     return { ok: false, error: "章节不存在或无权限" };
@@ -40,6 +42,20 @@ export async function saveChapterContentAction(chapterId: string, content: strin
 
   // 静默刷新 SSR 数据，不触发客户端 fetch abort
   revalidatePath(`/project/${chapter.projectId}`);
+
+  // 记忆 wiki：保存后异步提取（节流 + 配额不足时静默跳过）
+  if (chapter.project.autoMemory) {
+    after(async () => {
+      try {
+        const res = await extractChapterWiki(chapterId);
+        if (!res.ok && res.skipped && res.skipped !== "throttled" && res.skipped !== "inflight" && res.skipped !== "empty") {
+          console.warn("[wiki] 自动提取跳过:", res.skipped);
+        }
+      } catch (e) {
+        console.error("[wiki] 自动提取失败:", e);
+      }
+    });
+  }
 
   return { ok: true, wordCount };
 }
@@ -130,22 +146,17 @@ export async function markChapterFinalAction(chapterId: string) {
     data: { status: "final" },
   });
 
-  // 异步生成摘要
-  if (chapter.content && !chapter.summary) {
+  // 定稿强制重提取记忆 wiki（绕过节流；覆盖旧摘要，修复"改稿后摘要停留在初版"缺陷）
+  after(async () => {
     try {
-      const summary = await aiChat({
-        messages: summaryPrompt(chapter.content),
-        temperature: 0.3,
-        maxTokens: 500,
-      });
-      await prisma.chapter.update({
-        where: { id: chapterId },
-        data: { summary: summary.trim() },
-      });
+      const res = await extractChapterWiki(chapterId, { force: true });
+      if (!res.ok) {
+        console.warn("[wiki] 定稿提取未完成:", res.skipped || res.error);
+      }
     } catch (e) {
-      console.error("[summary] 生成摘要失败:", e);
+      console.error("[wiki] 定稿提取失败:", e);
     }
-  }
+  });
 
   revalidatePath(`/project/${chapter.project.id}`);
   return { ok: true };

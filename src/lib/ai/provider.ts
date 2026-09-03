@@ -127,12 +127,15 @@ export async function* streamChat(opts: {
 /**
  * 非流式生成。返回完整文本。
  * 遇到可重试错误时自动重试（最多 MAX_RETRIES 次）。
+ * 混合推理模型（DeepSeek v4 等）若把输出预算烧在思考上导致正文为空，也视为可重试。
  */
 export async function chat(opts: {
   messages: AIMessage[];
   model?: string;
   temperature?: number;
   maxTokens?: number;
+  /** DeepSeek v4 等推理模型：disabled 可关闭思考，省 token 且防止思考烧掉 max_tokens 导致正文截断 */
+  thinking?: "enabled" | "disabled";
 }): Promise<string> {
   const openai = getClient();
   const model = opts.model || DEFAULT_MODEL;
@@ -140,13 +143,25 @@ export async function chat(opts: {
 
   for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
     try {
-      const resp = await openai.chat.completions.create({
+      const body = {
         model,
         messages: opts.messages,
         temperature: opts.temperature ?? 0.8,
         max_tokens: opts.maxTokens,
-      });
-      return resp.choices[0]?.message?.content || "";
+        ...(opts.thinking ? { thinking: { type: opts.thinking } } : {}),
+      };
+      const resp = (await openai.chat.completions.create(
+        body as unknown as Parameters<typeof openai.chat.completions.create>[0]
+      )) as unknown as {
+        choices: Array<{ message?: { content?: string } }>;
+      };
+      const content = resp.choices[0]?.message?.content || "";
+      // 推理模型偶尔全部预算耗在 reasoning 上、content 为空：退避后重试
+      if (!content.trim() && attempt < MAX_RETRIES) {
+        await backoff(attempt);
+        continue;
+      }
+      return content;
     } catch (err) {
       lastError = err;
       if (!isRetryable(err) || attempt === MAX_RETRIES) throw err;

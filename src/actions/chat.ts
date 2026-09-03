@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { chat as aiChat } from "@/lib/ai/provider";
 import { extractCardsPrompt } from "@/lib/ai/prompts";
+import { extractChatWiki } from "@/lib/ai/wiki";
 
 /**
  * 对话共创相关 Server Actions。
@@ -214,8 +216,16 @@ export async function convertChatToProjectAction(projectId: string) {
   const user = await getCurrentUser();
   if (!user) return { ok: false, error: "未登录" };
 
+  const project = await prisma.project.findUnique({
+    where: { id: projectId },
+    select: { userId: true },
+  });
+  if (!project || project.userId !== user.id) {
+    return { ok: false, error: "项目不存在或无权限" };
+  }
+
   await prisma.project.update({
-    where: { id: projectId, userId: user.id },
+    where: { id: projectId },
     data: { mode: "WORKBENCH" },
   });
 
@@ -223,6 +233,25 @@ export async function convertChatToProjectAction(projectId: string) {
     where: { projectId },
     data: { status: "converted" },
   });
+
+  // 转化后异步提取对话阶段记忆（事件/角色状态/伏笔，source=chat）
+  const latestSession = await prisma.chatSession.findFirst({
+    where: { projectId, status: "converted" },
+    orderBy: { updatedAt: "desc" },
+    select: { id: true },
+  });
+  if (latestSession) {
+    after(async () => {
+      try {
+        const res = await extractChatWiki(projectId, latestSession.id);
+        if (!res.ok) {
+          console.warn("[wiki] 对话记忆提取未完成:", res.skipped || res.error);
+        }
+      } catch (e) {
+        console.error("[wiki] 对话记忆提取失败:", e);
+      }
+    });
+  }
 
   revalidatePath(`/project/${projectId}`);
   return { ok: true };

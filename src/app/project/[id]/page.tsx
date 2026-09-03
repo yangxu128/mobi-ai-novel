@@ -4,6 +4,10 @@ import { prisma } from "@/lib/prisma";
 import { ensureProjectMode } from "@/lib/project-mode";
 import { ProjectWorkspace } from "@/components/project-workspace";
 import type { ViewMode } from "@/components/project-mode-switcher";
+import type {
+  CharacterStateCurrent,
+  StoryMemoryView,
+} from "@/types/memory";
 
 const VIEW_TO_MODE: Record<string, ViewMode> = {
   pipeline: "PIPELINE",
@@ -51,6 +55,7 @@ export default async function ProjectPage({
         model: true,
         targetChapters: true,
         chapterWords: true,
+        autoMemory: true,
         // 流水线 + 工作台 + 对话共创所需的所有字段
         worldSettings: {
           orderBy: { updatedAt: "desc" },
@@ -72,6 +77,7 @@ export default async function ProjectPage({
             background: true,
             motivation: true,
             arc: true,
+            characterStates: { select: { current: true } },
           },
         },
         outlines: {
@@ -109,15 +115,76 @@ export default async function ProjectPage({
             },
           },
         },
+        // 记忆 wiki 三表（知识库"记忆"页签）
+        foreshadows: {
+          where: { deletedAt: null },
+          orderBy: { createdAt: "asc" },
+          select: {
+            id: true,
+            title: true,
+            content: true,
+            status: true,
+            plantedChapterNo: true,
+            resolvedChapterNo: true,
+          },
+        },
+        storyEvents: {
+          where: { deletedAt: null },
+          orderBy: [{ chapterNo: "asc" }, { order: "asc" }],
+          take: 150,
+          select: {
+            id: true,
+            chapterNo: true,
+            content: true,
+            characters: true,
+            key: true,
+            source: true,
+          },
+        },
       },
     }),
   ]);
 
   if (!project) notFound();
 
+  // 组装记忆视图（供知识库侧边栏"记忆"页签）
+  const memory: StoryMemoryView = {
+    autoMemory: project.autoMemory,
+    characterStates: project.characters
+      .filter((c) => (c.characterStates?.length || 0) > 0)
+      .map((c) => ({
+        characterId: c.id,
+        characterName: c.name,
+        role: c.role,
+        current:
+          (c.characterStates[0]?.current as CharacterStateCurrent | null) ?? {},
+      })),
+    foreshadows: project.foreshadows.map((f) => ({
+      id: f.id,
+      title: f.title,
+      content: f.content,
+      status: f.status,
+      plantedChapterNo: f.plantedChapterNo,
+      resolvedChapterNo: f.resolvedChapterNo,
+    })),
+    events: project.storyEvents.map((e) => ({
+      id: e.id,
+      chapterNo: e.chapterNo,
+      content: e.content,
+      characters: Array.isArray(e.characters)
+        ? (e.characters as string[])
+        : [],
+      key: e.key,
+      source: e.source,
+    })),
+  };
+
+  const { foreshadows: _fs, storyEvents: _ev, ...projectData } = project;
+
   return (
     <ProjectWorkspace
-      project={project as unknown as React.ComponentProps<typeof ProjectWorkspace>["project"]}
+      project={projectData as unknown as React.ComponentProps<typeof ProjectWorkspace>["project"]}
+      memory={memory}
       initialView={initialView}
     />
   );

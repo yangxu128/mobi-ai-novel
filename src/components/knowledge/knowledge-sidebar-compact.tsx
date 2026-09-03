@@ -2,7 +2,7 @@
 
 /**
  * 工作台右侧知识库面板（只读展示 + 搜索过滤）。
- * 页签：人物设定 / 世界观 / 情节大纲（仅当前章节关联的大纲）。
+ * 页签：人物设定 / 世界观 / 情节大纲（仅当前章节关联的大纲）/ 记忆（LLM wiki）。
  * 底部为管理知识库入口。
  */
 
@@ -10,10 +10,12 @@ import { memo, useState } from "react";
 import Link from "next/link";
 import { Feather, Search, LibraryBig } from "lucide-react";
 import type { WorldSettingView, CharacterView } from "@/types/knowledge";
+import type { StoryMemoryView } from "@/types/memory";
 import { getCategoryLabel, roleLabel } from "@/lib/knowledge/labels";
+import { MemoryTab } from "@/components/knowledge/memory-tab";
 import { cn } from "@/lib/utils";
 
-type KbTab = "chars" | "world" | "outline";
+type KbTab = "chars" | "world" | "outline" | "memory";
 
 interface ActiveOutline {
   sceneTitle?: string | null;
@@ -56,6 +58,8 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
   activeOutline,
   genre,
   projectId,
+  memory,
+  activeChapterId,
 }: {
   worldSettings: WorldSettingView[];
   characters: CharacterView[];
@@ -63,6 +67,10 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
   activeOutline: ActiveOutline | null;
   genre?: string | null;
   projectId: string;
+  /** 记忆 wiki（事件/角色状态/伏笔） */
+  memory?: StoryMemoryView;
+  /** 当前编辑章节 id（"更新本章记忆"按钮用） */
+  activeChapterId?: string | null;
 }) {
   const [tab, setTab] = useState<KbTab>("chars");
   const [query, setQuery] = useState("");
@@ -92,11 +100,16 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
     chars: filteredChars.length,
     world: filteredWorld.length,
     outline: currentOutline ? 1 : 0,
+    memory:
+      (memory?.characterStates.length || 0) +
+      (memory?.foreshadows.length || 0) +
+      (memory?.events.length || 0),
   };
   const emptyByTab: Record<KbTab, string> = {
     chars: "暂无角色卡，可在流水线的「角色卡」步骤中添加",
     world: "暂无世界观内容，可在流水线的「世界观」步骤中添加",
     outline: "本章暂无关联大纲，可在流水线的「大纲」步骤中生成",
+    memory: "暂无记忆，保存章节后自动提取",
   };
 
   return (
@@ -139,6 +152,13 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
           onClick={() => setTab("outline")}
         >
           情节大纲
+        </button>
+        <button
+          type="button"
+          className={cn("kb-tab", tab === "memory" && "is-active")}
+          onClick={() => setTab("memory")}
+        >
+          记忆
         </button>
       </div>
 
@@ -238,6 +258,17 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
                 </div>
               );
             })()
+          ))}
+
+        {tab === "memory" &&
+          (!memory || countByTab.memory === 0 ? (
+            <KbEmpty hint={emptyByTab.memory} />
+          ) : (
+            <MemoryTab
+              memory={memory}
+              projectId={projectId}
+              activeChapterId={activeChapterId ?? null}
+            />
           ))}
       </div>
 

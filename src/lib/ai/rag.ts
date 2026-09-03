@@ -16,6 +16,7 @@ import { cache } from "react";
 import { prisma } from "@/lib/prisma";
 import type { KnowledgeContext } from "./prompts";
 import { getCategoryLabel, roleLabel } from "@/lib/knowledge/labels";
+import { getStoryState } from "./wiki";
 
 /**
  * 组装章节扩写所需的上下文。
@@ -149,6 +150,12 @@ export const buildChapterContext = cache(
     };
   });
 
+  // 记忆 wiki：故事状态卡（动态角色状态 + 伏笔生命周期 + 关键事件时间线）
+  // 老项目无 wiki 数据时 getStoryState 返回 undefined，prompt 无该区块，零降级
+  const storyState = await getStoryState(opts.projectId, {
+    povCharacterId: currentOutline?.povCharacterId ?? null,
+  });
+
   return {
     worldSettings: worldSettings.map((w: typeof worldSettings[number]) => ({
       title: w.title,
@@ -181,6 +188,7 @@ export const buildChapterContext = cache(
             : [],
         }
       : undefined,
+    storyState,
   };
 }
 );
@@ -199,7 +207,11 @@ export async function logAIUsage(opts: {
     | "outlineAppend"
     | "expand"
     | "polish"
-    | "chat";
+    | "chat"
+    | "consistency"
+    | "extract"
+    | "summary"
+    | "analyzeStyle";
   model: string;
   promptTokens: number;
   completionTokens: number;

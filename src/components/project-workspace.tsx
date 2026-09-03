@@ -8,6 +8,8 @@ import { WorkbenchClient } from "@/components/workbench/workbench-client";
 import { ChatCoCreateClient, getOrFetchChatSession } from "@/components/chat/chat-cocreate-client";
 import { useViewSwitcher } from "@/components/hooks/use-view-switcher";
 import type { ViewMode } from "@/components/project-mode-switcher";
+import type { StoryMemoryView } from "@/types/memory";
+import { KnowledgeSidebarCompact } from "@/components/knowledge/knowledge-sidebar-compact";
 import {
   Dialog,
   DialogContent,
@@ -86,6 +88,7 @@ interface ProjectData {
 
 interface Props {
   project: ProjectData;
+  memory?: StoryMemoryView;
   initialView: ViewMode;
 }
 
@@ -102,7 +105,7 @@ const STEP_LABELS = ["灵感卡", "世界观", "角色卡", "大纲", "章节扩
  * 5. 切换视图 = setState + CSS display 切换，毫秒级
  * 6. 视图切换逻辑已提取到 useViewSwitcher hook
  */
-function ProjectWorkspaceImpl({ project, initialView }: Props) {
+function ProjectWorkspaceImpl({ project, memory, initialView }: Props) {
   const { activeView, pending, handleViewChange } = useViewSwitcher(project.id, initialView);
   const tipTapLoadedRef = useRef(false);
   const chatPrefetchedRef = useRef(false);
@@ -366,6 +369,7 @@ function ProjectWorkspaceImpl({ project, initialView }: Props) {
             <div className="flex-1 min-h-0 flex flex-col">
               <WorkbenchClient
                 project={project as unknown as React.ComponentProps<typeof WorkbenchClient>["project"]}
+                memory={memory}
               />
             </div>
           </div>
@@ -382,8 +386,21 @@ function ProjectWorkspaceImpl({ project, initialView }: Props) {
           aria-hidden={activeView !== "CHAT"}
         >
           <div className="h-full flex flex-col">
-            <div className="flex-1 min-h-0 p-3.5 flex flex-col">
-              <ChatCoCreateClient projectId={project.id} />
+            <div className="flex-1 min-h-0 flex flex-row p-3.5 gap-3">
+              <div className="flex-1 min-w-0 flex flex-col">
+                <ChatCoCreateClient projectId={project.id} />
+              </div>
+              {/* 对话模式右侧知识库（与工作台同款四页签，含记忆） */}
+              <aside className="hidden w-80 shrink-0 flex-col lg:flex rounded-2xl border border-border-neutral-l1 bg-bg-base-default">
+                <KnowledgeSidebarCompact
+                  worldSettings={project.worldSettings}
+                  characters={project.characters}
+                  activeOutline={null}
+                  genre={project.genre}
+                  projectId={project.id}
+                  memory={memory}
+                />
+              </aside>
             </div>
           </div>
         </div>

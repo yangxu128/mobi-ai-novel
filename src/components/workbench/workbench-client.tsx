@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { TipTapEditor } from "@/components/editor/tiptap-editor";
 import { KnowledgeSidebarCompact } from "@/components/knowledge/knowledge-sidebar-compact";
+import type { StoryMemoryView } from "@/types/memory";
 import { createChapterAction, deleteChapterAction, renameChapterAction } from "@/actions/chapter";
 import { toast } from "@/components/ui/toast";
 import { formatCount, cn } from "@/lib/utils";
@@ -107,7 +108,13 @@ function groupByVolume(chapters: Chapter[]) {
 // 静态 import TipTap：ProjectWorkspace 已经通过 requestIdleCallback 预加载，
 // 这里静态 import 不会重复下载，且能让 React 在挂载时直接拿到组件引用
 // 用 React.memo 包裹整个组件，ProjectWorkspace 的其他状态变化不会重渲染工作台
-function WorkbenchClientImpl({ project }: { project: Project }) {
+function WorkbenchClientImpl({
+  project,
+  memory,
+}: {
+  project: Project;
+  memory?: StoryMemoryView;
+}) {
   const [chapters, setChapters] = useState<Chapter[]>(project.chapters);
   const [activeId, setActiveId] = useState<string | null>(
     project.chapters[0]?.id || null
@@ -393,6 +400,8 @@ function WorkbenchClientImpl({ project }: { project: Project }) {
             activeOutline={active?.outline ?? null}
             genre={project.genre}
             projectId={project.id}
+            memory={memory}
+            activeChapterId={active?.id ?? null}
           />
         </aside>
       )}
