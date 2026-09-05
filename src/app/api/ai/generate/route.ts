@@ -10,7 +10,7 @@
 import { NextRequest } from "next/server";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { streamChat, estimateTokens } from "@/lib/ai/provider";
+import { streamChat, estimateTokens, AIStreamStalledError } from "@/lib/ai/provider";
 import { resolveModel } from "@/lib/ai/models";
 import { checkQuota } from "@/lib/ai/quota";
 import { logAIUsage, buildChapterContext } from "@/lib/ai/rag";
@@ -335,31 +335,43 @@ export async function POST(req: NextRequest) {
         // maxTokens 32768：给思考与正文留足预算。
         // 大纲类 JSON 结构化任务关闭思考（thinking disabled）：
         // 推理模型思考动辄数万 token、耗时数分钟且大概率解析失败，
-        // 得不偿失。若某轮正文为空，自动带提示重试一次（最多 2 轮）。
+        // 得不偿失。重试策略（共 3 轮）：
+        // - 正文为空 → 追加提示词要求直接输出后重试
+        // - 流中途挂起（AIStreamStalledError）→ 发 reset 事件清空前端已渲染内容后整体重跑
         let attemptMsgs = messages;
-        for (let attempt = 1; attempt <= 2; attempt++) {
+        for (let attempt = 1; attempt <= 3; attempt++) {
           completionText = "";
           reasoningText = "";
-          for await (const chunk of streamChat({
-            messages: attemptMsgs,
-            model,
-            signal: abort.signal,
-            maxTokens: 32768,
-            // 深度思考由页面开关控制（默认关，全 action 生效）
-            thinking: body.thinking === true ? "enabled" : "disabled",
-          })) {
-            // 思考内容单独作为 reasoning 事件推送（前端显示思考中）
-            if (chunk.reasoning) {
-              reasoningText += chunk.delta;
-              send("reasoning", { text: chunk.delta });
+          try {
+            for await (const chunk of streamChat({
+              messages: attemptMsgs,
+              model,
+              signal: abort.signal,
+              maxTokens: 32768,
+              // 深度思考由页面开关控制（默认关，全 action 生效）
+              thinking: body.thinking === true ? "enabled" : "disabled",
+            })) {
+              // 思考内容单独作为 reasoning 事件推送（前端显示思考中）
+              if (chunk.reasoning) {
+                reasoningText += chunk.delta;
+                send("reasoning", { text: chunk.delta });
+                continue;
+              }
+              if (chunk.delta) {
+                completionText += chunk.delta;
+                send("delta", { text: chunk.delta });
+              }
+            }
+          } catch (e) {
+            // 流中途挂起：provider 层已重试无果，这里清空前端内容后整体重跑
+            if (e instanceof AIStreamStalledError && attempt < 3 && !abort.signal.aborted) {
+              send("reset", { reason: "stalled", message: "生成中断，正在自动重试..." });
+              send("reasoning", { text: "\n[流式输出挂起，自动重试中...]\n" });
               continue;
             }
-            if (chunk.delta) {
-              completionText += chunk.delta;
-              send("delta", { text: chunk.delta });
-            }
+            throw e;
           }
-          if (completionText.trim() || attempt >= 2) break;
+          if (completionText.trim() || attempt >= 3) break;
           // 正文为空：提示模型直接输出后重试
           attemptMsgs = [
             ...attemptMsgs,

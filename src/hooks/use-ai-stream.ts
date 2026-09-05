@@ -120,6 +120,11 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
               } else if (event === "reasoning" && data.text) {
                 // 推理模型思考内容：仅累计字数用于"思考中"反馈
                 setThinking((n) => n + data.text.length);
+              } else if (event === "reset") {
+                // 流中断自动重试：清空上一轮已渲染内容，避免重跑后文本重复
+                fullTextRef.current = "";
+                setText("");
+                setThinking(0);
               } else if (event === "error") {
                 setError(data.message || "生成失败");
                 opts.onError?.(data.message || "生成失败");
