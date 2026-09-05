@@ -44,20 +44,42 @@ export async function GET() {
     pg = { status: "down", ...fmt(e) };
   }
 
-  // 第 2 层：Prisma 全链路
-  let prismaCheck: Record<string, unknown> = { status: "skipped" };
+  // 第 2 层：Prisma 模型查询（业务主路径）
+  let prismaModel: Record<string, unknown> = { status: "skipped" };
   try {
     const { prisma } = await import("@/lib/prisma");
     const t0 = Date.now();
-    await prisma.$queryRaw`SELECT 1`;
-    prismaCheck = { status: "up", ms: Date.now() - t0 };
+    const n = await prisma.user.count();
+    prismaModel = { status: "up", ms: Date.now() - t0, users: n };
   } catch (e) {
-    prismaCheck = { status: "down", ...fmt(e) };
+    prismaModel = { status: "down", ...fmt(e) };
+  }
+
+  // 第 3 层：$queryRawUnsafe（部分 v5.22 适配器对标签模板支持有缺陷）
+  let prismaRawUnsafe: Record<string, unknown> = { status: "skipped" };
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    const r = await prisma.$queryRawUnsafe("SELECT 1 AS ok");
+    prismaRawUnsafe = { status: "up", result: (r as Array<{ ok: number }>)[0]?.ok };
+  } catch (e) {
+    prismaRawUnsafe = { status: "down", ...fmt(e) };
+  }
+
+  // 第 4 层：$queryRaw 标签模板
+  let prismaRawTagged: Record<string, unknown> = { status: "skipped" };
+  try {
+    const { prisma } = await import("@/lib/prisma");
+    await prisma.$queryRaw`SELECT 1`;
+    prismaRawTagged = { status: "up" };
+  } catch (e) {
+    prismaRawTagged = { status: "down", ...fmt(e) };
   }
 
   return NextResponse.json({
     checks,
     pg,
-    prisma: prismaCheck,
+    prismaModel,
+    prismaRawUnsafe,
+    prismaRawTagged,
   });
 }
