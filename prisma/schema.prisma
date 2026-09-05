@@ -2,7 +2,10 @@
 // 适配 Supabase PostgreSQL
 
 generator client {
-  provider = "prisma-client-js"
+  provider        = "prisma-client-js"
+  // 无引擎模式：查询全部经 @prisma/adapter-pg（纯 JS pg 驱动）执行，
+  // 不加载原生 Rust 引擎二进制 —— EdgeOne 函数运行时无法加载原生引擎
+  previewFeatures = ["driverAdapters"]
 }
 
 datasource db {
