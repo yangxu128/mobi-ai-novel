@@ -61,6 +61,9 @@ export const authConfig = {
       // NextAuth API 路由放行
       if (pathname.startsWith("/api/auth")) return true;
 
+      // 健康检查端点放行（生产诊断用）
+      if (pathname === "/api/health") return true;
+
       // 静态资源放行
       if (pathname.startsWith("/_next") || pathname.includes(".")) return true;
 
