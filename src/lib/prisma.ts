@@ -8,6 +8,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
  * 因此查询全部经 @prisma/adapter-pg（纯 JS pg 驱动）执行。
  */
 
+/** 构建标记：/api/health 回显，用于判断线上代码版本 */
+export const PRISMA_INIT_MODE = "adapter-pg";
+
 function createPrisma() {
   const connectionString = process.env.DATABASE_URL || "";
   // Supabase 强制 TLS；本地/自建库无 SSL 时不启用
