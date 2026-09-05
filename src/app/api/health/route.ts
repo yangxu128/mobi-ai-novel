@@ -18,13 +18,16 @@ export async function GET() {
   let db = "up";
   let dbErrorCode = "";
   let dbErrorName = "";
+  let dbErrorMessage = "";
   try {
     await prisma.$queryRaw`SELECT 1`;
   } catch (e) {
-    const err = e as { code?: string; name?: string };
+    const err = e as { code?: string; name?: string; message?: string };
     db = "down";
     dbErrorCode = err.code || "";
     dbErrorName = err.name || (e as Error).constructor.name;
+    // 仅保留首行，便于定位；不包含连接串
+    dbErrorMessage = (err.message || "").split("\n")[0].slice(0, 160);
   }
 
   return NextResponse.json({
@@ -33,5 +36,6 @@ export async function GET() {
     db,
     dbErrorCode,
     dbErrorName,
+    dbErrorMessage,
   });
 }
