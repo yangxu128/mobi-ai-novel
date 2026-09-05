@@ -69,7 +69,17 @@ export const authConfig = {
 
       // 管理后台需校验 ADMIN 角色
       if (pathname.startsWith("/admin")) {
-        return isLoggedIn && (auth?.user?.role === "ADMIN");
+        const ok = isLoggedIn && (auth?.user?.role === "ADMIN");
+        if (!ok && isLoggedIn) {
+          // 临时诊断：有会话但角色不符时输出 middleware 实际看到的会话内容
+          return new Response(JSON.stringify({
+            debug: true,
+            role: auth?.user?.role ?? null,
+            userKeys: Object.keys(auth?.user ?? {}),
+            id: (auth?.user as { id?: string })?.id ?? null,
+          }), { status: 401, headers: { "content-type": "application/json" } });
+        }
+        return ok;
       }
 
       // 其余路由需要登录
