@@ -170,7 +170,7 @@ export function MemoryTab({ memory, projectId, activeChapterId }: Props) {
             return (
               <div
                 key={s.characterId}
-                className="rounded-xl border border-border-neutral-l1 bg-bg-base-secondary p-3 transition-colors hover:border-border-neutral-l2"
+                className="kb-card"
               >
                 <div className="flex items-center gap-2">
                   <span className="brand-gradient flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-text-onbrand">
@@ -234,7 +234,7 @@ export function MemoryTab({ memory, projectId, activeChapterId }: Props) {
           {memory.foreshadows.map((f) => (
             <div
               key={f.id}
-              className="rounded-xl border border-border-neutral-l1 bg-bg-base-secondary p-3 transition-colors hover:border-border-neutral-l2"
+              className="kb-card"
             >
               <div className="flex items-center gap-1.5">
                 <span
@@ -263,14 +263,14 @@ export function MemoryTab({ memory, projectId, activeChapterId }: Props) {
                 <div className="mt-1.5 flex gap-1.5">
                   <button
                     type="button"
-                    className="rounded-md border border-border-neutral-l2 px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:bg-bg-overlay-l1"
+                    className="rounded-md border border-border-neutral-l2 px-2 py-0.5 text-[10px] text-text-secondary transition-all hover:bg-bg-overlay-l1 focus-visible:shadow-[var(--ring-focus)] focus-visible:outline-none active:scale-95"
                     onClick={() => onForeshadowStatus(f, "resolved")}
                   >
                     标记已回收
                   </button>
                   <button
                     type="button"
-                    className="rounded-md border border-border-neutral-l2 px-2 py-0.5 text-[10px] text-text-secondary transition-colors hover:bg-bg-overlay-l1"
+                    className="rounded-md border border-border-neutral-l2 px-2 py-0.5 text-[10px] text-text-secondary transition-all hover:bg-bg-overlay-l1 focus-visible:shadow-[var(--ring-focus)] focus-visible:outline-none active:scale-95"
                     onClick={() => onForeshadowStatus(f, "abandoned")}
                   >
                     放弃

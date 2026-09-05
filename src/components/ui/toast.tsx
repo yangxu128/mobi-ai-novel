@@ -69,14 +69,14 @@ export function Toaster() {
             style={{ gap: "var(--spacer-12)", padding: "var(--spacer-12) var(--spacer-16)" }}
           >
             <div className="flex-1 min-w-0">
-              <div className="ds-notif__title">{t.title}</div>
+              <div className="app-toast__title">{t.title}</div>
               {t.description && (
-                <div className="ds-notif__desc">{t.description}</div>
+                <div className="app-toast__desc">{t.description}</div>
               )}
             </div>
             <button
               onClick={() => remove(t.id)}
-              className="ds-notif__close"
+              className="app-toast__close"
               aria-label="关闭"
             >
               <X className="h-3.5 w-3.5" />

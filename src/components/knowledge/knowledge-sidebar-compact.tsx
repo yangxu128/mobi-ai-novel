@@ -171,7 +171,7 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
               {filteredChars.map((c) => (
                 <div
                   key={c.id}
-                  className="rounded-xl border border-border-neutral-l1 bg-bg-base-secondary p-3 transition-colors hover:border-border-neutral-l2"
+                  className="kb-card"
                 >
                   <div className="flex items-center gap-2.5">
                     <span className="brand-gradient flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-text-onbrand">
@@ -204,7 +204,7 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
               {filteredWorld.map((w) => (
                 <div
                   key={w.id}
-                  className="rounded-xl border border-border-neutral-l1 bg-bg-base-secondary p-3 transition-colors hover:border-border-neutral-l2"
+                  className="kb-card"
                 >
                   <div className="flex items-center gap-1.5">
                     <span className="rounded bg-bg-overlay-l1 px-1.5 py-0.5 text-[10px] text-text-tertiary">
@@ -234,7 +234,7 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
               const o = currentOutline;
               const points = plotPointCount(o.plotPoints);
               return (
-                <div className="rounded-xl border border-border-neutral-l1 bg-bg-base-secondary p-3 transition-colors hover:border-border-neutral-l2">
+                <div className="kb-card">
                   <div className="flex items-center gap-1.5">
                     <span className="shrink-0 rounded bg-bg-brand-popup px-1.5 py-0.5 text-[10px] text-text-brand">
                       {volumeLabel(o.volume)}

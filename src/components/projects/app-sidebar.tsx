@@ -72,7 +72,42 @@ export function AppSidebar() {
   const anim = intro ? "side-in" : "";
 
   return (
-    <aside
+    <>
+      {/* 移动端顶栏（<md：侧边栏隐藏时提供最小导航） */}
+      <div className="sticky top-0 z-30 flex w-full items-center gap-2 border-b border-border-neutral-l1 bg-bg-base-default/95 px-3 py-2 backdrop-blur md:hidden">
+        <Link
+          href="/"
+          aria-label="墨笔首页"
+          className="brand-gradient flex h-8 w-8 shrink-0 items-center justify-center rounded-lg shadow-[var(--shadow-glow)]"
+        >
+          <PenLine className="h-4 w-4 text-text-onbrand" />
+        </Link>
+        <span className="font-display hidden text-base font-bold text-text-default sm:inline">墨笔</span>
+        <nav className="ml-auto flex items-center gap-1">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const active = item.match(pathname);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                prefetch
+                className={cn(
+                  "flex items-center gap-1.5 rounded-full px-2.5 py-1.5 text-xs transition-colors",
+                  active
+                    ? "brand-gradient font-medium text-text-onbrand"
+                    : "text-text-secondary hover:bg-bg-overlay-l1 hover:text-text-default"
+                )}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {item.label}
+              </Link>
+            );
+          })}
+        </nav>
+      </div>
+
+      <aside
       className="sticky top-0 hidden h-[100dvh] shrink-0 overflow-hidden py-4 pl-4 md:block"
       style={{ width: collapsed ? 76 : 288, transition: `width ${EASE}` }}
     >
@@ -227,5 +262,6 @@ export function AppSidebar() {
         </div>
       </div>
     </aside>
+    </>
   );
 }

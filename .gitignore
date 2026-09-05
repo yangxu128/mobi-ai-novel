@@ -53,3 +53,13 @@ next-env.d.ts
 /check-admin.mjs
 /scripts/list-users.cjs
 /dl_builtin_trae_work/
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+  
+.trae/
+wechat-article/
+.dev.log
+.dev-err.log

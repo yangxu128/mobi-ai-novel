@@ -87,9 +87,11 @@ function pageSequence(current: number, total: number): (number | "…")[] {
 export function ProjectsClient({
   initialProjects,
   newOpen,
+  initialSort,
 }: {
   initialProjects: ProjectItem[];
   newOpen: boolean;
+  initialSort: "updatedAt" | "createdAt" | "title";
 }) {
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectItem[]>(initialProjects);
@@ -102,6 +104,7 @@ export function ProjectsClient({
   const [query, setQuery] = useState("");
   const [view, setView] = useState<"grid" | "list">("grid");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState(initialSort);
 
   // 新建表单状态
   const [title, setTitle] = useState("");
@@ -115,13 +118,21 @@ export function ProjectsClient({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return projects;
-    return projects.filter(
-      (p) =>
-        p.title.toLowerCase().includes(q) ||
-        (p.synopsis || "").toLowerCase().includes(q)
-    );
-  }, [projects, query]);
+    const base = q
+      ? projects.filter(
+          (p) =>
+            p.title.toLowerCase().includes(q) ||
+            (p.synopsis || "").toLowerCase().includes(q)
+        )
+      : projects;
+    const sorted = [...base];
+    if (sort === "createdAt") {
+      sorted.sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1)); // createdAt 未下发，用 updatedAt 近似
+    } else if (sort === "title") {
+      sorted.sort((a, b) => a.title.localeCompare(b.title, "zh"));
+    }
+    return sorted;
+  }, [projects, query, sort]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -176,10 +187,10 @@ export function ProjectsClient({
   }
 
   return (
-    <div className="flex min-h-full bg-[var(--bg-canvas)]">
+    <div className="flex min-h-full flex-col bg-[var(--bg-canvas)] md:flex-row">
       <AppSidebar />
 
-      <main className="min-w-0 flex-1">
+      <main className="w-full min-w-0 flex-1 md:w-auto">
         <div className="mx-auto max-w-[1200px] px-6 py-8 lg:px-10">
           {/* 页头：衬线标题 + 搜索/视图/新建 */}
           <div className="flex flex-wrap items-end justify-between gap-4">
@@ -198,7 +209,34 @@ export function ProjectsClient({
                   }}
                   placeholder="搜索项目名称或内容"
                 />
+                {query && (
+                  <button
+                    type="button"
+                    aria-label="清除搜索"
+                    onClick={() => {
+                      setQuery("");
+                      setPage(1);
+                    }}
+                    className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-bg-overlay-l2 text-text-tertiary transition-colors hover:bg-bg-overlay-l3 hover:text-text-default"
+                  >
+                    ×
+                  </button>
+                )}
               </div>
+              <select
+                aria-label="排序方式"
+                value={sort}
+                onChange={(e) => {
+                  setSort(e.target.value as typeof sort);
+                  setPage(1);
+                  router.push(e.target.value === "updatedAt" ? "/projects" : `/projects?sort=${e.target.value}`);
+                }}
+                className="ds-select h-9 w-32 rounded-full text-xs"
+              >
+                <option value="updatedAt">最近更新</option>
+                <option value="createdAt">创建时间</option>
+                <option value="title">标题 A-Z</option>
+              </select>
               <div className="flex h-9 items-center gap-0.5 rounded-full border border-border-neutral-l1 bg-bg-base-default p-1">
                 <button
                   type="button"
@@ -510,11 +548,11 @@ function ProjectCard({ p, onDelete }: { p: ProjectItem; onDelete: () => void }) 
         </div>
       )}
 
-      <p className="mt-4 line-clamp-2 min-h-[2.6em] text-[13px] leading-relaxed text-text-tertiary">
+      <p className="mb-5 mt-3 line-clamp-2 min-h-[2.6em] text-[13px] leading-relaxed text-text-tertiary">
         {p.synopsis || "暂无简介"}
       </p>
 
-      <div className="mt-5 flex items-center justify-between border-t border-border-neutral-l1 pt-4 text-xs">
+      <div className="mt-auto flex items-center justify-between border-t border-border-neutral-l1 pt-4 text-xs">
         <span className="num text-text-secondary">{formatCount(p.wordCount)} 字</span>
         <span className="text-text-tertiary">{formatUpdatedAt(p.updatedAt)} 更新</span>
       </div>
@@ -568,7 +606,7 @@ function CardMenu({ onDelete }: { onDelete: () => void }) {
         <button
           type="button"
           aria-label="更多操作"
-          className="relative z-20 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-colors hover:bg-bg-overlay-l1 hover:text-text-default"
+          className="relative z-20 flex h-7 w-7 shrink-0 items-center justify-center rounded-md text-text-tertiary transition-opacity hover:bg-bg-overlay-l1 hover:text-text-default focus-visible:opacity-100 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
         >
           <MoreVertical className="h-4 w-4" />
         </button>

@@ -204,10 +204,11 @@
   --bg-base-default: #FFFFFF;
   --bg-base-secondary: #FAFAF8;
   --bg-base-tertiary: #F5F5F5;
-  --bg-overlay-l1: rgba(115, 115, 115, 0.08);
-  --bg-overlay-l2: rgba(115, 115, 115, 0.12);
-  --bg-overlay-l3: rgba(115, 115, 115, 0.16);
-  --bg-overlay-l4: rgba(115, 115, 115, 0.20);
+  /* 暖调中性色：灰中混入微量暖棕，与暖橙品牌色形成潜意识 cohesion */
+  --bg-overlay-l1: rgba(122, 112, 102, 0.08);
+  --bg-overlay-l2: rgba(122, 112, 102, 0.12);
+  --bg-overlay-l3: rgba(122, 112, 102, 0.17);
+  --bg-overlay-l4: rgba(122, 112, 102, 0.22);
   --bg-white: #FFFFFF;
   --bg-menu: #FFFFFF;
   --bg-tooltip: #FFFFFF;
@@ -542,4 +543,15 @@
   --font-family-serif: "Noto Serif SC", "Source Han Serif SC", "Songti SC", STSong, "华文中宋", STZhongsong, SimSun, serif;
   /* 选中态暖橙底（导航项 / 章节行） */
   --bg-brand-wash: #FFF3E6;
+}
+
+/* ============================================================
+   2026-09 质感升级：焦点环与输入聚焦令牌
+   全站统一键盘焦点语言：2px 暖橙环 + 12% 光晕；
+   输入聚焦从纯黑边框升级为品牌橙边框 + 柔和光晕
+   ============================================================ */
+:root {
+  --ring-focus: 0 0 0 2px var(--bg-base-default), 0 0 0 4px rgba(255, 122, 0, 0.42);
+  --ring-focus-soft: 0 0 0 3px rgba(255, 122, 0, 0.13);
+  --border-focus-brand: rgba(255, 122, 0, 0.55);
 }

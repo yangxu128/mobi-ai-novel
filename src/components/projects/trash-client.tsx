@@ -65,10 +65,10 @@ export function TrashClient({ initialProjects }: { initialProjects: TrashItem[] 
   }
 
   return (
-    <div className="flex min-h-full bg-[var(--bg-canvas)]">
+    <div className="flex min-h-full flex-col bg-[var(--bg-canvas)] md:flex-row">
       <AppSidebar />
 
-      <main className="min-w-0 flex-1">
+      <main className="w-full min-w-0 flex-1 md:w-auto">
         <div className="mx-auto max-w-[1000px] px-6 py-8 lg:px-10">
           <h1 className="font-display text-3xl font-bold text-text-default">回收站</h1>
           <p className="mt-1.5 text-sm text-text-tertiary">
