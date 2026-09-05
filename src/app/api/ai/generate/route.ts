@@ -308,6 +308,23 @@ export async function POST(req: NextRequest) {
     );
   }
 
+  // 客户端断点续传：流被平台超时/网络中断切断后，前端携带已生成内容从中断处继续
+  const continuation =
+    typeof (payload || {}).__continuation === "string"
+      ? ((payload as Record<string, unknown>).__continuation as string)
+      : "";
+  if (continuation) {
+    messages = [
+      ...messages,
+      { role: "assistant" as const, content: continuation },
+      {
+        role: "user" as const,
+        content:
+          "你的输出在上文被意外中断。请从中断处的最后一个字符继续，只输出剩余内容。不要重复已输出的部分，不要重新开始，不要添加任何解释或道歉。",
+      },
+    ];
+  }
+
   const encoder = new TextEncoder();
   const abort = new AbortController();
   req.signal.addEventListener("abort", () => abort.abort());
