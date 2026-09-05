@@ -103,3 +103,28 @@ export async function GET() {
     prismaRawTagged,
   });
 }
+
+/**
+ * POST 探针：验证 EdgeOne 运行时是否把请求体提前排空（平台已知缺陷）。
+ * curl -X POST <site>/api/health -H "Content-Type: application/json" -d '{"t":1}'
+ * 正常应返回 bodyLen: 7；若 bodyLen: 0 且 bodyUsed: false 则命中平台缺陷。
+ */
+export async function POST(request: Request) {
+  const logs: string[] = [];
+  const contentLength = request.headers.get("content-length") || "";
+  const contentType = request.headers.get("content-type") || "";
+  logs.push(`content-length=${contentLength}`);
+  logs.push(`content-type=${contentType}`);
+  logs.push(`bodyUsed=${request.bodyUsed}`);
+  let text = "";
+  try {
+    text = await request.text();
+  } catch (e) {
+    logs.push(`text() error: ${(e as Error).message}`);
+  }
+  logs.push(`bodyLen=${text.length}`);
+  if (text.length === 0 && Number(contentLength) > 0) {
+    logs.push("FATAL: Content-Length>0 但 body 为空 —— 平台排空了请求体");
+  }
+  return NextResponse.json({ probe: "post-body", logs });
+}
