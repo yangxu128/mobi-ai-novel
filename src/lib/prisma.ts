@@ -3,9 +3,9 @@ import { PrismaClient } from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 /**
- * Prisma 无引擎模式（driverAdapters）：
- * EdgeOne 函数运行时无法加载 Prisma 原生引擎二进制，
- * 因此查询全部经 @prisma/adapter-pg（纯 JS pg 驱动）执行。
+ * Prisma driverAdapters：连接层走纯 JS pg 驱动（@prisma/adapter-pg）；
+ * Query Engine 二进制由 schema 的 binaryTargets 覆盖 EdgeOne 运行时
+ * （构建机 rhel-openssl-3.0.x ≠ 运行时 rhel-openssl-1.1.x）。
  */
 
 /** 构建标记：/api/health 回显，用于判断线上代码版本 */

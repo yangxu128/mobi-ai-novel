@@ -3,8 +3,10 @@
 
 generator client {
   provider        = "prisma-client-js"
-  // 无引擎模式：查询全部经 @prisma/adapter-pg（纯 JS pg 驱动）执行，
-  // 不加载原生 Rust 引擎二进制 —— EdgeOne 函数运行时无法加载原生引擎
+  // EdgeOne 构建机是 rhel-openssl-3.0.x，函数运行时是 rhel-openssl-1.1.x，
+  // 必须显式声明运行时 binaryTarget，否则部署后找不到 Query Engine 二进制
+  binaryTargets   = ["native", "rhel-openssl-1.1.x"]
+  // 连接层走纯 JS pg 驱动（adapter 与引擎在 5.22 中协同工作）
   previewFeatures = ["driverAdapters"]
 }
 
