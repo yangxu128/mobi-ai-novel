@@ -16,16 +16,22 @@ export default function RegisterPage() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const fd = new FormData(e.currentTarget);
-    const res = await registerAction(fd);
-    setLoading(false);
-    if (!res.ok) {
-      setError(res.error || "注册失败");
-      return;
+    try {
+      const fd = new FormData(e.currentTarget);
+      const res = await registerAction(fd);
+      if (!res.ok) {
+        setError(res.error || "注册失败");
+        return;
+      }
+      toast({ title: "注册成功", description: "正在进入工作台", type: "success" });
+      router.push("/projects");
+      router.refresh();
+    } catch {
+      // 服务端 500（如环境变量未配置）时给出可见反馈，而不是永远转圈
+      setError("注册服务暂时不可用，请稍后再试或联系管理员");
+    } finally {
+      setLoading(false);
     }
-    toast({ title: "注册成功", description: "正在进入工作台", type: "success" });
-    router.push("/projects");
-    router.refresh();
   }
 
   return (

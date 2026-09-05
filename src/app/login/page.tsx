@@ -43,17 +43,22 @@ function LoginForm() {
     e.preventDefault();
     setError(null);
     setLoading(true);
-    const res = await signIn("credentials", { email, password, redirect: false });
-    setLoading(false);
-    if (res?.error) {
-      setError("邮箱或密码错误");
-    } else {
+    try {
+      const res = await signIn("credentials", { email, password, redirect: false });
+      if (res?.error) {
+        setError("邮箱或密码错误");
+        return;
+      }
       // 用 window.location.href 代替 router.push：触发完整页面导航，
       // 确保 NextAuth 的 session cookie 已写入浏览器后再走 middleware 校验。
       // router.push + router.refresh 存在时序竞争：cookie 未写入时
       // middleware 判定未登录，会把 /admin 等受保护页面重定向回 /login。
       window.location.href = callbackUrl;
-    }
+      } catch {
+        setError("登录服务暂时不可用，请稍后再试");
+      } finally {
+        setLoading(false);
+      }
   }
 
   return (

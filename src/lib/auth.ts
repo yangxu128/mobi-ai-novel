@@ -70,12 +70,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
     session: async ({ session, token }) => {
       if (!session.user) return session;
       const id = (token.id as string) || (token.sub as string);
+      if (!id) return session;
       session.user.id = id;
       session.user.role = (token.role as string) ?? "FREE";
-      const dbUser = await prisma.user.findUnique({
-        where: { id },
-        select: { role: true },
-      });
+      let dbUser;
+      try {
+        dbUser = await prisma.user.findUnique({
+          where: { id },
+          select: { role: true },
+        });
+      } catch {
+        // 数据库暂不可达时退回 JWT 缓存的角色，不让全站会话读取失败
+        return session;
+      }
       if (!dbUser) {
         session.user.id = "";
         return session;

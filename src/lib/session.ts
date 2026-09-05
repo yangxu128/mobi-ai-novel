@@ -14,9 +14,15 @@ export type SessionUser = {
  * 未登录返回 null，不抛错，由调用方决定如何处理。
  */
 export async function getCurrentUser(): Promise<SessionUser | null> {
-  const session = await auth();
-  if (!session?.user?.id) return null;
-  return session.user as SessionUser;
+  try {
+    const session = await auth();
+    if (!session?.user?.id) return null;
+    return session.user as SessionUser;
+  } catch {
+    // 环境变量缺失/数据库不可达等情况下视同未登录，
+    // 避免整站 server action 因 auth() 抛错而 500
+    return null;
+  }
 }
 
 /**
