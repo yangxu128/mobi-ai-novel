@@ -31,10 +31,12 @@ export async function GET() {
   let pg: Record<string, unknown> = { status: "skipped" };
   try {
     const { Pool } = await import("pg");
+    const cs = process.env.DATABASE_URL || "";
     const pool = new Pool({
-      connectionString: process.env.DATABASE_URL,
+      connectionString: cs,
       max: 1,
-      ssl: { rejectUnauthorized: false },
+      // Supabase 强制 TLS；本地库无 SSL 时不启用，避免误报
+      ...(cs.includes("supabase.") ? { ssl: { rejectUnauthorized: false } } : {}),
     });
     const t0 = Date.now();
     const r = await pool.query("SELECT 1 AS ok");
