@@ -63,3 +63,5 @@ next-env.d.ts
 wechat-article/
 .dev.log
 .dev-err.log
+
+.node20/

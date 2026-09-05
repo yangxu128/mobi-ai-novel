@@ -2,8 +2,7 @@
 // 适配 Supabase PostgreSQL
 
 generator client {
-  provider        = "prisma-client-js"
-  previewFeatures = ["postgresqlExtensions", "driverAdapters"]
+  provider = "prisma-client-js"
 }
 
 datasource db {
