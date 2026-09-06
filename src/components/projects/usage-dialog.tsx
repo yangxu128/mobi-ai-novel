@@ -41,7 +41,9 @@ interface UsageInfo {
 const PLAN_NAMES: Record<string, string> = {
   FREE: "免费版",
   BASIC: "基础版",
+  STANDARD: "标准版",
   PRO: "专业版",
+  ULTIMATE: "旗舰版",
   ADMIN: "管理员",
 };
 

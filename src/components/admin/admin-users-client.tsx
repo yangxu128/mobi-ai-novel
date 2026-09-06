@@ -98,7 +98,7 @@ export function AdminUsersClient({
 
   function onPlanChange(userId: string, plan: string) {
     startTransition(async () => {
-      const res = await updateUserSubscriptionAction(userId, plan as "FREE" | "BASIC" | "PRO");
+      const res = await updateUserSubscriptionAction(userId, plan as "FREE" | "BASIC" | "STANDARD" | "PRO" | "ULTIMATE");
       if (res.ok) {
         toast({ title: "订阅套餐已更新", type: "success" });
         router.refresh();
@@ -138,7 +138,9 @@ export function AdminUsersClient({
           <SelectContent>
             <SelectItem value="all">全部角色</SelectItem>
             <SelectItem value="ADMIN">ADMIN</SelectItem>
+            <SelectItem value="ULTIMATE">ULTIMATE</SelectItem>
             <SelectItem value="PRO">PRO</SelectItem>
+            <SelectItem value="STANDARD">STANDARD</SelectItem>
             <SelectItem value="BASIC">BASIC</SelectItem>
             <SelectItem value="FREE">FREE</SelectItem>
           </SelectContent>
@@ -228,7 +230,9 @@ export function AdminUsersClient({
                         <SelectContent>
                           <SelectItem value="FREE">FREE</SelectItem>
                           <SelectItem value="BASIC">BASIC</SelectItem>
+                          <SelectItem value="STANDARD">STANDARD</SelectItem>
                           <SelectItem value="PRO">PRO</SelectItem>
+                          <SelectItem value="ULTIMATE">ULTIMATE</SelectItem>
                         </SelectContent>
                       </Select>
                     </td>

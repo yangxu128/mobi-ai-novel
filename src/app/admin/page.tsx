@@ -14,7 +14,9 @@ const MODE_META: Record<string, { label: string; chip: string }> = {
 
 const ROLE_LABEL: Record<string, string> = {
   ADMIN: "管理员",
+  ULTIMATE: "旗舰版",
   PRO: "专业版",
+  STANDARD: "标准版",
   BASIC: "基础版",
   FREE: "免费版",
 };

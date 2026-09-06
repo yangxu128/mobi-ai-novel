@@ -10,7 +10,7 @@ import { toast } from "@/components/ui/toast";
 import { SiteFooter } from "@/components/site-footer";
 import { changeMyPlanAction } from "@/actions/subscription";
 
-type Plan = "FREE" | "BASIC" | "PRO";
+type Plan = "FREE" | "BASIC" | "STANDARD" | "PRO" | "ULTIMATE";
 
 interface PlanDef {
   name: Plan;
@@ -40,33 +40,62 @@ const PLANS: PlanDef[] = [
   {
     name: "BASIC",
     cn: "基础版",
-    price: "¥29",
+    price: "¥39",
+    period: "/月",
+    desc: "适合轻度创作者",
+    features: [
+      "5 个项目",
+      "每月 1000 积分（≈400 万 tokens）",
+      "每日签到再领 50 积分",
+      "流水线全 6 步 + 写作工作台",
+      "TXT/Markdown 导出",
+    ],
+    highlight: false,
+  },
+  {
+    name: "STANDARD",
+    cn: "标准版",
+    price: "¥99",
     period: "/月",
     desc: "适合深度创作者",
     features: [
       "10 个项目",
-      "每月 3000 积分（≈1200 万 tokens）",
-      "每日签到再领 50 积分（≈20 万 tokens）",
-      "流水线全 6 步 + 写作工作台",
+      "每月 2000 积分（≈800 万 tokens）",
+      "每日签到再领 50 积分",
       "知识库 RAG + 一致性检查",
       "TXT/Markdown 导出",
     ],
-    highlight: true,
+    highlight: false,
   },
   {
     name: "PRO",
     cn: "专业版",
-    price: "¥79",
+    price: "¥189",
     period: "/月",
     desc: "适合专业网文作者",
     features: [
       "无限项目",
-      "每月 8000 积分（≈3200 万 tokens）",
-      "每日签到再领 50 积分（≈20 万 tokens）",
+      "每月 4000 积分（≈1600 万 tokens）",
+      "每日签到再领 50 积分",
       "高级模型可选（LongCat / GLM / Qwen）",
       "一致性检查 + 作家风格模仿",
       "无限角色卡",
-      "TXT/Markdown 导出",
+    ],
+    highlight: true,
+  },
+  {
+    name: "ULTIMATE",
+    cn: "旗舰版",
+    price: "¥299",
+    period: "/月",
+    desc: "适合高强度连载作者",
+    features: [
+      "无限项目",
+      "每月 7000 积分（≈2800 万 tokens）",
+      "每日签到再领 50 积分",
+      "高级模型 + 作家风格模仿",
+      "全功能解锁",
+      "优先体验新功能",
     ],
     highlight: false,
   },
@@ -136,7 +165,7 @@ export function PricingClient({ currentPlan, expiresAt }: Props) {
         </p>
       )}
 
-      <div className="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto items-stretch">
+      <div className="grid md:grid-cols-2 lg:grid-cols-5 gap-4 max-w-6xl mx-auto items-stretch">
         {PLANS.map((plan) => {
           const isCurrent = !isAdmin && active === plan.name;
           return (

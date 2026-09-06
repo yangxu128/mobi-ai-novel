@@ -228,7 +228,7 @@ export async function deleteProjectAdminAction(projectId: string): Promise<Actio
  */
 export async function updateUserSubscriptionAction(
   userId: string,
-  plan: "FREE" | "BASIC" | "PRO",
+  plan: "FREE" | "BASIC" | "STANDARD" | "PRO" | "ULTIMATE",
   expiresAt?: string | null
 ): Promise<ActionResult> {
   const admin = await requireAdmin();

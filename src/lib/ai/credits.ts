@@ -17,8 +17,10 @@ export const CHECKIN_REWARD = 50;
 /** 各套餐每月订阅积分（北京时间每月 1 日重置） */
 export const PLAN_MONTHLY_CREDITS: Record<string, number> = {
   FREE: 0, // 免费版靠每日签到领积分
-  BASIC: 3000, // ≈ 1200 万 tokens/月
-  PRO: 8000, // ≈ 3200 万 tokens/月
+  BASIC: 1000, // 基础版 ¥39 ≈ 400 万 tokens/月
+  STANDARD: 2000, // 标准版 ¥99 ≈ 800 万 tokens/月
+  PRO: 4000, // 专业版 ¥189 ≈ 1600 万 tokens/月
+  ULTIMATE: 7000, // 旗舰版 ¥299 ≈ 2800 万 tokens/月
   ADMIN: Number.POSITIVE_INFINITY, // 不限量
 };
 

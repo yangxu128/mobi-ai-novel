@@ -1,0 +1,6 @@
+-- 套餐扩档：新增 STANDARD（标准版）/ ULTIMATE（旗舰版）两档付费套餐
+-- ALTER TYPE ADD VALUE 为增量变更，对旧代码向后兼容
+ALTER TYPE "UserRole" ADD VALUE 'STANDARD';
+ALTER TYPE "UserRole" ADD VALUE 'ULTIMATE';
+ALTER TYPE "SubscriptionPlan" ADD VALUE 'STANDARD';
+ALTER TYPE "SubscriptionPlan" ADD VALUE 'ULTIMATE';

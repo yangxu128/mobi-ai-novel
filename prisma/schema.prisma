@@ -22,13 +22,17 @@ enum UserRole {
   ADMIN
   FREE
   BASIC
+  STANDARD
   PRO
+  ULTIMATE
 }
 
 enum SubscriptionPlan {
   FREE
   BASIC
+  STANDARD
   PRO
+  ULTIMATE
 }
 
 enum SubscriptionStatus {

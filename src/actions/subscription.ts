@@ -4,9 +4,9 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 
-type Plan = "FREE" | "BASIC" | "PRO";
+type Plan = "FREE" | "BASIC" | "STANDARD" | "PRO" | "ULTIMATE";
 
-const VALID_PLANS: Plan[] = ["FREE", "BASIC", "PRO"];
+const VALID_PLANS: Plan[] = ["FREE", "BASIC", "STANDARD", "PRO", "ULTIMATE"];
 
 /**
  * 自助切换订阅套餐（当前登录用户）。

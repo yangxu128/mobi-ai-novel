@@ -5,7 +5,7 @@ import { PricingClient } from "@/components/pricing/pricing-client";
 export default async function PricingPage() {
   const user = await getCurrentUser();
 
-  let currentPlan: "FREE" | "BASIC" | "PRO" | "ADMIN" | null = null;
+  let currentPlan: "FREE" | "BASIC" | "STANDARD" | "PRO" | "ULTIMATE" | "ADMIN" | null = null;
   let expiresAt: string | null = null;
 
   if (user) {
@@ -16,7 +16,8 @@ export default async function PricingPage() {
         where: { userId: user.id },
         select: { plan: true, expiresAt: true },
       });
-      currentPlan = sub?.plan ?? (user.role as "FREE" | "BASIC" | "PRO");
+      currentPlan =
+        sub?.plan ?? (user.role as "FREE" | "BASIC" | "STANDARD" | "PRO" | "ULTIMATE");
       expiresAt = sub?.expiresAt ? sub.expiresAt.toISOString() : null;
     }
   }
