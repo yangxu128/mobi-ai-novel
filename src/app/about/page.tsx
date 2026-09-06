@@ -41,12 +41,9 @@ export default function AboutPage() {
         </div>
         <p>产品建议、合作洽谈或任何问题，我们认真阅读每一封邮件。</p>
       </Section>
-      <Section title="加入我们">
-        <p id="join">我们在寻找同样热爱故事的伙伴：</p>
-        <p>· 前端工程师（React / Next.js，热爱打磨交互细节）</p>
-        <p>· AI 应用工程师（Prompt 工程 / RAG / Agent）</p>
-        <p>· 网文产品运营（深度网文阅读者优先）</p>
-        <p>以上职位长期有效，简历发送至 <a href="mailto:1419644549@qq.com" className="text-text-brand hover:underline">1419644549@qq.com</a>，附上你最想改进的一个写作工具痛点更佳。</p>
+      <Section title="联系作者">
+        <p id="join">想交流 AI 写作、反馈使用体验，或探讨合作——欢迎直接联系作者：</p>
+        <p><a href="mailto:1419644549@qq.com" className="text-text-brand hover:underline">1419644549@qq.com</a></p>
       </Section>
     </SimplePage>
   );
