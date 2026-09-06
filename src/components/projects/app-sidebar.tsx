@@ -16,7 +16,6 @@ import {
   Home,
   FolderClosed,
   Trash2,
-  Crown,
   LogOut,
   CreditCard,
   PanelLeftClose,
