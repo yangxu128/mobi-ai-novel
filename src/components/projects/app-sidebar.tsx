@@ -22,6 +22,7 @@ import {
   Gift,
   CheckCircle2,
   Users,
+  Gauge,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -38,6 +39,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { ContactQr } from "@/components/about/contact-qr";
+import { UsageDialog } from "@/components/projects/usage-dialog";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -84,6 +86,8 @@ export function AppSidebar() {
   const [checkinOpen, setCheckinOpen] = useState(false);
   const [checkinPending, setCheckinPending] = useState(false);
   const [checkinDone, setCheckinDone] = useState(false);
+  // 套餐用量弹窗
+  const [usageOpen, setUsageOpen] = useState(false);
 
   // 拉取积分状态 + 每天首次访问弹出签到提醒
   async function loadQuota(): Promise<QuotaInfo | null> {
@@ -337,6 +341,10 @@ export function AppSidebar() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuItem onClick={() => setUsageOpen(true)}>
+                <Gauge className="mr-2 h-4 w-4" />
+                套餐用量
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => setCommunityOpen(true)}>
                 <Users className="mr-2 h-4 w-4" />
                 加入社区
@@ -371,6 +379,9 @@ export function AppSidebar() {
           <ContactQr />
         </DialogContent>
       </Dialog>
+
+      {/* 套餐用量弹窗：积分状态 + 本月消耗明细 */}
+      <UsageDialog open={usageOpen} onOpenChange={setUsageOpen} />
 
       {/* 每日签到提醒弹窗（每天首次访问弹出一次） */}
       <Dialog open={checkinOpen} onOpenChange={setCheckinOpen}>
