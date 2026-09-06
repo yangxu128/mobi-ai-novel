@@ -29,6 +29,14 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { Users } from "lucide-react";
+import { ContactQr } from "@/components/about/contact-qr";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -51,6 +59,8 @@ export function AppSidebar() {
   const [collapsed, setCollapsed] = useState(false);
   // 入场动画只在会话首次进入时播放，避免列表/回收站来回切反复重播
   const [intro, setIntro] = useState(false);
+  // 加入社区弹窗（双群二维码）
+  const [communityOpen, setCommunityOpen] = useState(false);
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -245,6 +255,14 @@ export function AppSidebar() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
+              <DropdownMenuItem
+                onClick={() => {
+                  setTimeout(() => setCommunityOpen(true), 350);
+                }}
+              >
+                <Users className="mr-2 h-4 w-4" />
+                加入社区
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => router.push("/pricing")}>
                 <CreditCard className="mr-2 h-4 w-4" />
                 订阅与权益
@@ -262,6 +280,19 @@ export function AppSidebar() {
         </div>
       </div>
     </aside>
+
+    {/* 加入社区：双群二维码 */}
+    <Dialog open={communityOpen} onOpenChange={setCommunityOpen}>
+      <DialogContent className="max-w-md rounded-2xl p-6">
+        <DialogHeader className="p-0 pr-8">
+          <DialogTitle>加入社区</DialogTitle>
+        </DialogHeader>
+        <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: "0 0 4px 0" }}>
+          扫码加入创作者交流群，和作者们一起让 AI 写作更好用：
+        </p>
+        <ContactQr />
+      </DialogContent>
+    </Dialog>
     </>
   );
 }
