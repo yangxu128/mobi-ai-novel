@@ -85,7 +85,7 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
             // error === "QUOTA_EXCEEDED"，频次限流 429 返回具体文案
             const msg =
               data.error === "QUOTA_EXCEEDED"
-                ? `今日免费额度已用尽（${data.used || 0}/${data.limit || 0} tokens），明天 0 点重置，或升级套餐`
+                ? `今日积分已用完（${data.usedCredits ?? Math.round((data.used || 0) / 100 * 10) / 10}/${data.limitCredits ?? Math.round((data.limit || 0) / 100 * 10) / 10} 积分），北京时间 0 点重置，或升级套餐`
                 : typeof data.error === "string"
                   ? data.error
                   : "请求过于频繁，请稍后再试";

@@ -269,6 +269,8 @@ export async function POST(req: NextRequest) {
         error: "QUOTA_EXCEEDED",
         used: quota.used,
         limit: quota.limit,
+        usedCredits: Math.round((quota.used / 100) * 10) / 10,
+        limitCredits: Math.round((quota.limit / 100) * 10) / 10,
       }),
       { status: 429, headers: { "Content-Type": "application/json" } }
     );

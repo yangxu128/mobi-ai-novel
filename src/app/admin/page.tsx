@@ -76,6 +76,9 @@ export default async function AdminDashboardPage() {
     0
   );
 
+  // 折算积分（1 积分 ≈ 100 tokens），与用户侧积分制口径一致
+  const todayCredits = Math.round((todayTokens / 100) * 10) / 10;
+
   // 近 7 天每日 AI Token 数
   const dailyTokens: { date: string; tokens: number }[] = [];
   for (let i = 0; i < 7; i++) {
@@ -290,6 +293,9 @@ export default async function AdminDashboardPage() {
           <CardTitle className="text-base text-text-default">近 7 天 AI Token 消耗</CardTitle>
           <span className="rounded-full bg-bg-brand-popup px-2.5 py-1 text-[11px] font-medium text-text-brand">
             今日 {todayTokens.toLocaleString()}
+            <span className="ml-1 text-xs font-normal text-text-tertiary">
+              （≈ {todayCredits} 积分）
+            </span>
           </span>
         </CardHeader>
         <CardContent>

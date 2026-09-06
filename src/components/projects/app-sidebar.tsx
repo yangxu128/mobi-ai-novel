@@ -61,6 +61,26 @@ export function AppSidebar() {
   const [intro, setIntro] = useState(false);
   // 加入社区弹窗（双群二维码）
   const [communityOpen, setCommunityOpen] = useState(false);
+  // 今日积分（积分制额度展示）
+  const [credits, setCredits] = useState<{
+    used: number;
+    limit: number;
+    unlimited: boolean;
+  } | null>(null);
+
+  useEffect(() => {
+    fetch("/api/quota")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (!d) return;
+        setCredits({
+          used: d.usedCredits ?? 0,
+          limit: d.limitCredits ?? 0,
+          unlimited: !!d.unlimited,
+        });
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -255,6 +275,25 @@ export function AppSidebar() {
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
+              {/* 今日积分（积分制额度展示） */}
+              {credits && (
+                <div className="px-2 pb-1.5 pt-1">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-text-tertiary">今日积分</span>
+                    <span className="num font-medium text-text-default">
+                      {credits.unlimited ? "不限量" : `${credits.used} / ${credits.limit}`}
+                    </span>
+                  </div>
+                  {!credits.unlimited && (
+                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-bg-overlay-l2">
+                      <div
+                        className="h-full rounded-full bg-bg-brand transition-[width]"
+                        style={{ width: `${Math.min(100, (credits.used / credits.limit) * 100)}%` }}
+                      />
+                    </div>
+                  )}
+                </div>
+              )}
               <DropdownMenuItem
                 onClick={() => {
                   setTimeout(() => setCommunityOpen(true), 350);

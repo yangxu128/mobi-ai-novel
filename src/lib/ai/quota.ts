@@ -1,29 +1,13 @@
 /**
- * 配额控制。MVP 用内存 Map 简化，生产应换 Redis。
+ * 配额控制（积分制）。
+ * 套餐以"每日积分"定义额度（credits.ts），底层按 token 精确计量：
+ * 限额 = 套餐每日积分 × 100（1 积分 ≈ 100 tokens ≈ 100 字）。
+ * 计数范围：自然日（北京时间），prompt + completion 合并统计。
  */
 
 import { prisma } from "@/lib/prisma";
-
-const FREE_TIER_DAILY_LIMIT = Number(
-  process.env.FREE_TIER_DAILY_TOKEN_LIMIT || 500
-);
-const BASIC_TIER_DAILY_LIMIT = 10000;
-const PRO_TIER_DAILY_LIMIT = 50000;
-// 管理员不限量
-const ADMIN_TIER_DAILY_LIMIT = Number.MAX_SAFE_INTEGER;
-
-function getLimitByRole(role: string): number {
-  switch (role) {
-    case "ADMIN":
-      return ADMIN_TIER_DAILY_LIMIT;
-    case "PRO":
-      return PRO_TIER_DAILY_LIMIT;
-    case "BASIC":
-      return BASIC_TIER_DAILY_LIMIT;
-    default:
-      return FREE_TIER_DAILY_LIMIT;
-  }
-}
+import { beijingDayStart } from "@/lib/utils";
+import { planDailyTokenLimit } from "./credits";
 
 /**
  * 查询当日已用 token 数（prompt + completion 总和）。
@@ -34,8 +18,7 @@ export async function getTodayUsage(userId: string): Promise<{
   remaining: number;
   unlimited: boolean;
 }> {
-  const start = new Date();
-  start.setHours(0, 0, 0, 0);
+  const start = beijingDayStart();
   const end = new Date(start);
   end.setDate(end.getDate() + 1);
 
@@ -45,7 +28,7 @@ export async function getTodayUsage(userId: string): Promise<{
   });
   const role = user?.role || "FREE";
   const unlimited = role === "ADMIN";
-  const limit = getLimitByRole(role);
+  const limit = planDailyTokenLimit(role);
 
   // 同时聚合 promptTokens 和 completionTokens，避免 RAG 场景下
   // prompt 远大于 completion 时配额被低估

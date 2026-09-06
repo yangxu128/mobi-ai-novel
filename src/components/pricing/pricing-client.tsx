@@ -33,7 +33,7 @@ const PLANS: PlanDef[] = [
       "1 个项目",
       "流水线前 2 步",
       "对话共创 20 轮/天",
-      "AI 续写 500 字/天",
+      "每日 5 积分（≈500 字 AI 续写）",
       "3 张角色卡",
     ],
     highlight: false,
@@ -48,7 +48,7 @@ const PLANS: PlanDef[] = [
       "10 个项目",
       "流水线全 6 步",
       "对话共创无限",
-      "AI 续写 1 万字/天",
+      "每日 100 积分（≈1 万字）",
       "工作台 + 知识库 RAG",
       "50 张角色卡",
       "TXT/Markdown 导出",
@@ -64,7 +64,7 @@ const PLANS: PlanDef[] = [
     desc: "适合专业网文作者",
     features: [
       "无限项目",
-      "AI 续写 5 万字/天",
+      "每日 500 积分（≈5 万字）",
       "Claude / 豆包 Pro 高级模型",
       "一致性检查",
       "无限角色卡",
@@ -123,7 +123,10 @@ export function PricingClient({ currentPlan, expiresAt }: Props) {
           内测期全部功能免费体验
         </div>
         <h1 className="text-4xl font-bold mb-3 text-text-default">选择适合你的方案</h1>
-        <p className="text-text-secondary">免费版永久免费，付费方案按月订阅，可随时取消</p>
+        <p className="text-text-secondary">
+          免费版永久免费，付费方案按月订阅，可随时取消。积分制计费：1 积分 ≈ 100 字
+          AI 生成量，按实际用量扣减，每天北京时间 0 点重置。
+        </p>
       </div>
       {currentPlan && (
         <p className="text-center text-sm text-text-tertiary mb-10">
