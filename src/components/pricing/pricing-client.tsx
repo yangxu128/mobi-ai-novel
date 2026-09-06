@@ -31,8 +31,7 @@ const PLANS: PlanDef[] = [
     desc: "适合初次尝试",
     features: [
       "1 个项目",
-      "每日 5 积分（≈500 字 AI 生成）",
-      "每日签到领 50 积分",
+      "每日签到领 50 积分（≈20 万 tokens）",
       "三种创作模式全开放",
       "知识库（世界观 / 角色 / 大纲）",
     ],
@@ -46,8 +45,8 @@ const PLANS: PlanDef[] = [
     desc: "适合深度创作者",
     features: [
       "10 个项目",
-      "每月 3000 积分（≈30 万字）",
-      "每日签到再领 50 积分",
+      "每月 3000 积分（≈1200 万 tokens）",
+      "每日签到再领 50 积分（≈20 万 tokens）",
       "流水线全 6 步 + 写作工作台",
       "知识库 RAG + 一致性检查",
       "TXT/Markdown 导出",
@@ -62,8 +61,8 @@ const PLANS: PlanDef[] = [
     desc: "适合专业网文作者",
     features: [
       "无限项目",
-      "每月 8000 积分（≈80 万字）",
-      "每日签到再领 50 积分",
+      "每月 8000 积分（≈3200 万 tokens）",
+      "每日签到再领 50 积分（≈20 万 tokens）",
       "高级模型可选（LongCat / GLM / Qwen）",
       "一致性检查 + 作家风格模仿",
       "无限角色卡",
@@ -121,8 +120,8 @@ export function PricingClient({ currentPlan, expiresAt }: Props) {
         </div>
         <h1 className="text-4xl font-bold mb-3 text-text-default">选择适合你的方案</h1>
         <p className="text-text-secondary">
-          免费版永久免费，付费方案按月订阅，可随时取消。积分制计费：1 积分 ≈ 100 字
-          AI 生成量，按实际用量扣减，每天北京时间 0 点重置。
+          免费版永久免费，付费方案按月订阅，可随时取消。积分制计费：1 积分 = 4000 tokens
+          （50 积分 ≈ 20 万 tokens），按后台实际 token 用量扣减。月度积分每月 1 日重置，签到积分长期有效。
         </p>
       </div>
       {currentPlan && (

@@ -1,23 +1,24 @@
 /**
  * 积分体系（对标智谱 BigModel 的套餐积分模式）：
- * - 统一计量单位：1 积分 ≈ 100 tokens ≈ 100 个中文字
+ * - 统一计量单位：1 积分 = 4000 tokens（50 积分 ≈ 20 万 tokens）
  * - 套餐积分 = 订阅月度积分（每月 1 日北京时间重置）+ 每日签到积分（长期有效）
- * - 底层仍按 token 精确计量扣减（credits × 100），先扣签到积分再扣订阅积分
+ * - 底层按 token 精确计量扣减，先扣签到积分再扣订阅积分
+ * - 月中套餐变更时立即按新套餐刷新月度积分（下次读取自动生效）
  */
 
 import { prisma } from "@/lib/prisma";
 import { beijingDayKey } from "@/lib/utils";
 
-export const TOKENS_PER_CREDIT = 100;
+export const TOKENS_PER_CREDIT = 4000;
 
-/** 每日签到奖励 */
+/** 每日签到奖励（50 积分 ≈ 20 万 tokens） */
 export const CHECKIN_REWARD = 50;
 
 /** 各套餐每月订阅积分（北京时间每月 1 日重置） */
 export const PLAN_MONTHLY_CREDITS: Record<string, number> = {
   FREE: 0, // 免费版靠每日签到领积分
-  BASIC: 3000, // ≈ 30 万字/月
-  PRO: 8000, // ≈ 80 万字/月
+  BASIC: 3000, // ≈ 1200 万 tokens/月
+  PRO: 8000, // ≈ 3200 万 tokens/月
   ADMIN: Number.POSITIVE_INFINITY, // 不限量
 };
 
@@ -63,9 +64,10 @@ export interface CreditsState {
 }
 
 /**
- * 读取积分状态（含周期滚动与懒建行）：
+ * 读取积分状态（含周期滚动、套餐变更刷新与懒建行）：
  * - 首次访问懒建余额行；
  * - 新月份首次访问时按套餐重发月度积分（未用完不结转）；
+ * - 月中套餐变更（自助/管理员切换）：立即按新套餐刷新月度积分，已用量保留；
  * - ADMIN 不限量，不维护余额。
  */
 export async function getCreditsState(
@@ -94,11 +96,16 @@ export async function getCreditsState(
     row = await prisma.creditBalance.create({
       data: { userId, cycleKey: ck, monthlyGranted: planMonthlyCredits(role) },
     });
-  }
-  if (row.cycleKey !== ck) {
+  } else if (row.cycleKey !== ck) {
     row = await prisma.creditBalance.update({
       where: { userId },
       data: { cycleKey: ck, monthlyGranted: planMonthlyCredits(role), monthlyUsed: 0 },
+    });
+  } else if (row.monthlyGranted !== planMonthlyCredits(role)) {
+    // 月中套餐变更：按新套餐刷新月度积分，已用量保留（切换后立即生效）
+    row = await prisma.creditBalance.update({
+      where: { userId },
+      data: { monthlyGranted: planMonthlyCredits(role) },
     });
   }
 

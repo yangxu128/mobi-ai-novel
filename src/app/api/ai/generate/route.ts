@@ -14,7 +14,7 @@ import { streamChat, estimateTokens, AIStreamStalledError } from "@/lib/ai/provi
 import { resolveModel } from "@/lib/ai/models";
 import { checkQuota } from "@/lib/ai/quota";
 import { logAIUsage, buildChapterContext } from "@/lib/ai/rag";
-import { deductCredits } from "@/lib/ai/credits";
+import { deductCredits, TOKENS_PER_CREDIT } from "@/lib/ai/credits";
 import {
   inspirePrompt,
   worldbuildPrompt,
@@ -411,7 +411,7 @@ export async function POST(req: NextRequest) {
           completionTokens,
         });
 
-        // 异步记账 + 积分扣减（1 积分 ≈ 100 tokens，向上取整）
+        // 异步记账 + 积分扣减（1 积分 = 4000 tokens，向上取整）
         await logAIUsage({
           userId,
           projectId,
@@ -424,7 +424,7 @@ export async function POST(req: NextRequest) {
           await deductCredits(
             userId,
             quota.role,
-            Math.ceil((promptTokens + completionTokens) / 100)
+            Math.ceil((promptTokens + completionTokens) / TOKENS_PER_CREDIT)
           );
         } catch {
           // 积分扣减失败不阻塞生成结果
