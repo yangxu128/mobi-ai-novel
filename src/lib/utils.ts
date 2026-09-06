@@ -1,6 +1,18 @@
 import { type ClassValue, clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
+/**
+ * 展示时区：面向中文用户的平台，所有时间统一按北京时间渲染。
+ * 显式指定时区使服务端（SSR，常为 UTC）与浏览器输出完全一致，
+ * 避免"部署后时间差 8 小时"与水合不一致问题。
+ */
+export const DISPLAY_TZ = "Asia/Shanghai";
+
+function dayKeyInTz(d: Date): string {
+  // sv-SE locale 输出 YYYY-MM-DD
+  return d.toLocaleDateString("sv-SE", { timeZone: DISPLAY_TZ });
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
@@ -11,6 +23,7 @@ export function formatDate(date: Date | string | number) {
     year: "numeric",
     month: "2-digit",
     day: "2-digit",
+    timeZone: DISPLAY_TZ,
   });
 }
 
@@ -22,6 +35,8 @@ export function formatDateTime(date: Date | string | number) {
     day: "2-digit",
     hour: "2-digit",
     minute: "2-digit",
+    hour12: false,
+    timeZone: DISPLAY_TZ,
   });
 }
 
@@ -39,11 +54,18 @@ export function formatCount(count: number) {
 export function formatUpdatedAt(date: Date | string | number) {
   const d = new Date(date);
   const now = new Date();
-  const hm = d.toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" });
-  if (d.toDateString() === now.toDateString()) return `今天 ${hm}`;
-  const yesterday = new Date(now);
-  yesterday.setDate(now.getDate() - 1);
-  if (d.toDateString() === yesterday.toDateString()) return `昨天 ${hm}`;
+  const hm = d.toLocaleTimeString("zh-CN", {
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+    timeZone: DISPLAY_TZ,
+  });
+  // 以北京时间的日界判断"今天/昨天"，与用户感知一致
+  const dKey = dayKeyInTz(d);
+  if (dKey === dayKeyInTz(now)) return `今天 ${hm}`;
+  const yest = new Date(now);
+  yest.setDate(now.getDate() - 1);
+  if (dKey === dayKeyInTz(yest)) return `昨天 ${hm}`;
   const sameYear = d.getFullYear() === now.getFullYear();
   return d.toLocaleDateString("zh-CN", sameYear
     ? { month: "2-digit", day: "2-digit" }
