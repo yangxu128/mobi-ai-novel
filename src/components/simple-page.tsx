@@ -26,7 +26,7 @@ export function SimplePage({
             </h1>
             <p className="mt-3 text-text-secondary">{description}</p>
             <p className="mt-2 text-xs text-text-tertiary">
-              最后更新：2026 年 8 月 31 日 · 有疑问请联系{" "}
+              最后更新：2026 年 9 月 6 日 · 有疑问请联系{" "}
               <a href="mailto:1419644549@qq.com" className="text-text-brand hover:underline">
                 1419644549@qq.com
               </a>
