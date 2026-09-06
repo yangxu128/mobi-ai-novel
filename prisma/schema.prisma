@@ -49,6 +49,7 @@ model User {
   aiUsageLogs    AIUsageLog[]
   accounts       Account[]
   sessions       Session[]
+  creditBalance  CreditBalance?
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -289,6 +290,21 @@ model CharacterState {
 
   @@index([projectId])
   @@map("character_states")
+}
+
+// 积分余额（积分制：订阅月度积分 + 签到积分）
+model CreditBalance {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         String   @unique @db.Uuid
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  cycleKey       String   @default("")   // 当前月度周期 "2026-09"（北京时间）
+  monthlyGranted Int      @default(0)    // 本周期订阅发放积分
+  monthlyUsed    Int      @default(0)    // 本周期已消耗
+  bonusBalance   Int      @default(0)    // 签到积分余额（不清零）
+  lastCheckInKey String?                 // 最近签到日 YYYY-MM-DD（北京时间）
+  updatedAt      DateTime @updatedAt
+
+  @@map("credit_balances")
 }
 
 enum ChatSessionStatus {

@@ -1,17 +1,23 @@
 /**
  * 积分体系（对标智谱 BigModel 的套餐积分模式）：
  * - 统一计量单位：1 积分 ≈ 100 tokens ≈ 100 个中文字
- * - 套餐以"每日积分"定义额度，底层仍按 token 精确计量（credits × 100）
- * - 好处：对用户直观（1 积分 ≈ 100 字），对系统单一换算口径
+ * - 套餐积分 = 订阅月度积分（每月 1 日北京时间重置）+ 每日签到积分（长期有效）
+ * - 底层仍按 token 精确计量扣减（credits × 100），先扣签到积分再扣订阅积分
  */
+
+import { prisma } from "@/lib/prisma";
+import { beijingDayKey } from "@/lib/utils";
 
 export const TOKENS_PER_CREDIT = 100;
 
-/** 各套餐每日积分额度 */
-export const PLAN_DAILY_CREDITS: Record<string, number> = {
-  FREE: 5, // ≈ 500 字/天
-  BASIC: 100, // ≈ 1 万字/天
-  PRO: 500, // ≈ 5 万字/天
+/** 每日签到奖励 */
+export const CHECKIN_REWARD = 50;
+
+/** 各套餐每月订阅积分（北京时间每月 1 日重置） */
+export const PLAN_MONTHLY_CREDITS: Record<string, number> = {
+  FREE: 0, // 免费版靠每日签到领积分
+  BASIC: 3000, // ≈ 30 万字/月
+  PRO: 8000, // ≈ 80 万字/月
   ADMIN: Number.POSITIVE_INFINITY, // 不限量
 };
 
@@ -25,15 +31,132 @@ export function creditsToTokens(credits: number): number {
   return credits * TOKENS_PER_CREDIT;
 }
 
-/** 套餐每日 token 限额（由积分额度派生，供配额校验使用） */
-export function planDailyTokenLimit(role: string): number {
-  const credits = PLAN_DAILY_CREDITS[role];
-  if (credits == null) return PLAN_DAILY_CREDITS.FREE * TOKENS_PER_CREDIT;
-  if (!Number.isFinite(credits)) return Number.MAX_SAFE_INTEGER;
-  return creditsToTokens(credits);
+/** 套餐每月积分额度 */
+export function planMonthlyCredits(role: string): number {
+  const v = PLAN_MONTHLY_CREDITS[role];
+  return v == null ? 0 : v;
 }
 
 /** 格式化积分（整数则不带小数） */
 export function formatCredits(credits: number): string {
   return Number.isInteger(credits) ? String(credits) : credits.toFixed(1);
+}
+
+function cycleKey(d = new Date()): string {
+  return beijingDayKey(d).slice(0, 7); // "2026-09"
+}
+
+function todayKey(d = new Date()): string {
+  return beijingDayKey(d);
+}
+
+export interface CreditsState {
+  role: string;
+  unlimited: boolean;
+  cycleKey: string;
+  monthlyGranted: number;
+  monthlyUsed: number;
+  bonusBalance: number;
+  /** 可用积分 = 订阅剩余 + 签到余额 */
+  available: number;
+  checkedInToday: boolean;
+}
+
+/**
+ * 读取积分状态（含周期滚动与懒建行）：
+ * - 首次访问懒建余额行；
+ * - 新月份首次访问时按套餐重发月度积分（未用完不结转）；
+ * - ADMIN 不限量，不维护余额。
+ */
+export async function getCreditsState(
+  userId: string,
+  role: string
+): Promise<CreditsState> {
+  const unlimited = role === "ADMIN";
+  const ck = cycleKey();
+  const tk = todayKey();
+
+  if (unlimited) {
+    return {
+      role,
+      unlimited: true,
+      cycleKey: ck,
+      monthlyGranted: 0,
+      monthlyUsed: 0,
+      bonusBalance: 0,
+      available: Number.MAX_SAFE_INTEGER,
+      checkedInToday: false,
+    };
+  }
+
+  let row = await prisma.creditBalance.findUnique({ where: { userId } });
+  if (!row) {
+    row = await prisma.creditBalance.create({
+      data: { userId, cycleKey: ck, monthlyGranted: planMonthlyCredits(role) },
+    });
+  }
+  if (row.cycleKey !== ck) {
+    row = await prisma.creditBalance.update({
+      where: { userId },
+      data: { cycleKey: ck, monthlyGranted: planMonthlyCredits(role), monthlyUsed: 0 },
+    });
+  }
+
+  const monthlyRemaining = Math.max(0, row.monthlyGranted - row.monthlyUsed);
+  const checkedInToday = row.lastCheckInKey === tk;
+
+  return {
+    role,
+    unlimited: false,
+    cycleKey: ck,
+    monthlyGranted: row.monthlyGranted,
+    monthlyUsed: row.monthlyUsed,
+    bonusBalance: row.bonusBalance,
+    available: monthlyRemaining + row.bonusBalance,
+    checkedInToday,
+  };
+}
+
+/**
+ * 每日签到：+CHECKIN_REWARD 积分（每北京时间天一次）。
+ */
+export async function checkIn(
+  userId: string,
+  role: string
+): Promise<{ ok: boolean; already?: boolean; granted?: number; bonus?: number; total?: number }> {
+  const state = await getCreditsState(userId, role);
+  if (state.unlimited) return { ok: false, already: true };
+  if (state.checkedInToday) {
+    return { ok: false, already: true, granted: 0, bonus: state.bonusBalance, total: state.available };
+  }
+  const row = await prisma.creditBalance.update({
+    where: { userId },
+    data: { bonusBalance: { increment: CHECKIN_REWARD }, lastCheckInKey: todayKey() },
+  });
+  const total = Math.max(0, row.monthlyGranted - row.monthlyUsed) + row.bonusBalance;
+  return { ok: true, granted: CHECKIN_REWARD, bonus: row.bonusBalance, total };
+}
+
+/**
+ * 消耗积分：先扣签到积分（先到先用），再扣订阅月度积分。
+ * 最后一次调用允许轻微透支（每月 1 日重置兜底）。
+ */
+export async function deductCredits(
+  userId: string,
+  role: string,
+  credits: number
+): Promise<void> {
+  if (credits <= 0) return;
+  const state = await getCreditsState(userId, role);
+  if (state.unlimited) return;
+
+  const fromBonus = Math.min(state.bonusBalance, credits);
+  const fromMonthly = credits - fromBonus;
+  await prisma.creditBalance.update({
+    where: { userId },
+    data: {
+      bonusBalance: state.bonusBalance - fromBonus,
+      monthlyUsed: state.monthlyUsed + fromMonthly,
+    },
+  });
 }

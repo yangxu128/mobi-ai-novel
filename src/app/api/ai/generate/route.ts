@@ -14,6 +14,7 @@ import { streamChat, estimateTokens, AIStreamStalledError } from "@/lib/ai/provi
 import { resolveModel } from "@/lib/ai/models";
 import { checkQuota } from "@/lib/ai/quota";
 import { logAIUsage, buildChapterContext } from "@/lib/ai/rag";
+import { deductCredits } from "@/lib/ai/credits";
 import {
   inspirePrompt,
   worldbuildPrompt,
@@ -267,10 +268,8 @@ export async function POST(req: NextRequest) {
     return new Response(
       JSON.stringify({
         error: "QUOTA_EXCEEDED",
-        used: quota.used,
-        limit: quota.limit,
-        usedCredits: Math.round((quota.used / 100) * 10) / 10,
-        limitCredits: Math.round((quota.limit / 100) * 10) / 10,
+        available: quota.available,
+        checkInReward: quota.checkInReward,
       }),
       { status: 429, headers: { "Content-Type": "application/json" } }
     );
@@ -412,7 +411,7 @@ export async function POST(req: NextRequest) {
           completionTokens,
         });
 
-        // 异步记账
+        // 异步记账 + 积分扣减（1 积分 ≈ 100 tokens，向上取整）
         await logAIUsage({
           userId,
           projectId,
@@ -421,6 +420,15 @@ export async function POST(req: NextRequest) {
           promptTokens,
           completionTokens,
         });
+        try {
+          await deductCredits(
+            userId,
+            quota.role,
+            Math.ceil((promptTokens + completionTokens) / 100)
+          );
+        } catch {
+          // 积分扣减失败不阻塞生成结果
+        }
       } catch (e) {
         // 提取友好错误信息
         const err = e as Error & { 

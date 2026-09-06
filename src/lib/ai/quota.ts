@@ -1,67 +1,47 @@
 /**
- * 配额控制（积分制）。
- * 套餐以"每日积分"定义额度（credits.ts），底层按 token 精确计量：
- * 限额 = 套餐每日积分 × 100（1 积分 ≈ 100 tokens ≈ 100 字）。
- * 计数范围：自然日（北京时间），prompt + completion 合并统计。
+ * 配额校验（积分制，余额模式）。
+ *
+ * 积分构成：订阅月度积分（每月 1 日北京时间重置，不结转）
+ *          + 每日签到积分（长期有效，先扣先用）。
+ * 校验规则：可用余额 > 0 即可发起生成；余额在生成完成后按
+ * tokens 折算扣减（1 积分 ≈ 100 tokens，向上取整），允许最后一次轻微透支。
  */
 
 import { prisma } from "@/lib/prisma";
-import { beijingDayStart } from "@/lib/utils";
-import { planDailyTokenLimit } from "./credits";
+import { CHECKIN_REWARD, getCreditsState } from "./credits";
+
+export interface QuotaState {
+  ok: boolean;
+  unlimited: boolean;
+  role: string;
+  monthlyGranted: number;
+  monthlyUsed: number;
+  bonusBalance: number;
+  available: number;
+  checkedInToday: boolean;
+  checkInReward: number;
+}
 
 /**
- * 查询当日已用 token 数（prompt + completion 总和）。
+ * 校验当前用户是否还有可用积分。
  */
-export async function getTodayUsage(userId: string): Promise<{
-  used: number;
-  limit: number;
-  remaining: number;
-  unlimited: boolean;
-}> {
-  const start = beijingDayStart();
-  const end = new Date(start);
-  end.setDate(end.getDate() + 1);
-
+export async function checkQuota(userId: string): Promise<QuotaState> {
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { role: true },
   });
   const role = user?.role || "FREE";
-  const unlimited = role === "ADMIN";
-  const limit = planDailyTokenLimit(role);
+  const state = await getCreditsState(userId, role);
 
-  // 同时聚合 promptTokens 和 completionTokens，避免 RAG 场景下
-  // prompt 远大于 completion 时配额被低估
-  const agg = await prisma.aIUsageLog.aggregate({
-    where: {
-      userId,
-      createdAt: { gte: start, lt: end },
-    },
-    _sum: { promptTokens: true, completionTokens: true },
-  });
-
-  const used =
-    (agg._sum.promptTokens || 0) + (agg._sum.completionTokens || 0);
   return {
-    used,
-    limit,
-    remaining: unlimited ? Number.MAX_SAFE_INTEGER : Math.max(0, limit - used),
-    unlimited,
+    ok: state.unlimited || state.available > 0,
+    unlimited: state.unlimited,
+    role: state.role,
+    monthlyGranted: state.monthlyGranted,
+    monthlyUsed: state.monthlyUsed,
+    bonusBalance: state.bonusBalance,
+    available: state.available,
+    checkedInToday: state.checkedInToday,
+    checkInReward: CHECKIN_REWARD,
   };
-}
-
-/**
- * 检查是否超出配额。
- */
-export async function checkQuota(userId: string): Promise<{
-  ok: boolean;
-  used: number;
-  limit: number;
-  remaining: number;
-  unlimited: boolean;
-}> {
-  const usage = await getTodayUsage(userId);
-  // ADMIN 不限量，直接放行
-  if (usage.unlimited) return { ok: true, ...usage };
-  return { ok: usage.remaining > 0, ...usage };
 }

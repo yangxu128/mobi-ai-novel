@@ -391,9 +391,9 @@ export async function extractChapterWiki(
     // 配额预检
     const usage = await checkQuota(chapter.project.userId);
     const estimatedPrompt = estimateTokens(plain) + 800;
-    if (!usage.unlimited && usage.remaining < estimatedPrompt + 1600) {
+    if (!usage.unlimited && usage.available < estimatedPrompt + 1600) {
       console.warn(
-        `[wiki] 配额不足，跳过记忆提取（剩余 ${usage.remaining}）`
+        `[wiki] 配额不足，跳过记忆提取（剩余 ${usage.available}）`
       );
       return { ok: false, skipped: "quota" };
     }
@@ -603,7 +603,7 @@ export async function extractChatWiki(
 
   const usage = await checkQuota(session.project.userId);
   const estimatedPrompt = estimateTokens(dialogue) + 800;
-  if (!usage.unlimited && usage.remaining < estimatedPrompt + 1600) {
+  if (!usage.unlimited && usage.available < estimatedPrompt + 1600) {
     console.warn("[wiki] 配额不足，跳过对话记忆提取");
     return { ok: false, skipped: "quota" };
   }

@@ -1,12 +1,11 @@
 import { getCurrentUser } from "@/lib/session";
-import { checkQuota } from "@/lib/ai/quota";
-import { tokensToCredits } from "@/lib/ai/credits";
+import { CHECKIN_REWARD, getCreditsState } from "@/lib/ai/credits";
 import { beijingDayStart } from "@/lib/utils";
 import { NextResponse } from "next/server";
 
 /**
- * 当前用户今日积分状态（供前端展示剩余额度）。
- * 1 积分 ≈ 100 tokens ≈ 100 字；北京时间 0 点重置。
+ * 当前用户积分状态（供前端展示与每日签到提醒）。
+ * 订阅积分每月 1 日重置；签到积分长期有效。
  */
 export async function GET() {
   const user = await getCurrentUser();
@@ -14,21 +13,21 @@ export async function GET() {
     return NextResponse.json({ error: "UNAUTHORIZED" }, { status: 401 });
   }
 
-  const quota = await checkQuota(user.id);
-  const unlimited = quota.unlimited;
+  const state = await getCreditsState(user.id, user.role);
 
-  // 下次重置：北京时间明天 0 点（ISO，含 +08:00 偏移）
+  // 下次重置：下月 1 日北京时间 0 点
   const next = beijingDayStart();
-  next.setDate(next.getDate() + 1);
+  next.setMonth(next.getMonth() + 1);
 
   return NextResponse.json({
-    role: user.role,
-    unlimited,
-    usedCredits: tokensToCredits(quota.used),
-    limitCredits: unlimited ? null : tokensToCredits(quota.limit),
-    remainingCredits: unlimited
-      ? null
-      : Math.max(0, Math.round((quota.remaining / 100) * 10) / 10),
+    role: state.role,
+    unlimited: state.unlimited,
+    checkedInToday: state.checkedInToday,
+    checkInReward: CHECKIN_REWARD,
+    monthlyGranted: state.monthlyGranted,
+    monthlyUsed: state.monthlyUsed,
+    bonusBalance: state.bonusBalance,
+    available: state.available,
     resetsAt: next.toISOString(),
   });
 }

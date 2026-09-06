@@ -2,7 +2,7 @@
 
 /**
  * 应用壳层左侧导航（Editorial Calm）：
- * 整个导航栏是一张悬浮大圆角卡片（品牌 / 导航 / 会员卡 / 用户都在卡内），
+ * 整个导航栏是一张悬浮大圆角卡片（品牌 / 导航 / 签到 / 会员卡 / 用户都在卡内），
  * 浮在浅灰画布上；支持收起为窄栏（状态存 localStorage），带入场与悬停微动效。
  * 仅用于 /projects 与 /trash；项目工作台使用自绘顶栏不渲染此组件。
  */
@@ -20,6 +20,9 @@ import {
   LogOut,
   CreditCard,
   PanelLeftClose,
+  Gift,
+  CheckCircle2,
+  Users,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -35,8 +38,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Users } from "lucide-react";
 import { ContactQr } from "@/components/about/contact-qr";
+import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
 const NAV_ITEMS = [
@@ -50,6 +53,21 @@ const INTRO_KEY = "mb-side-intro-played";
 
 const EASE = "0.32s cubic-bezier(0.22, 1, 0.36, 1)";
 
+/** 北京时间的日期键（YYYY-MM-DD） */
+function todayKey(): string {
+  return new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Shanghai" });
+}
+
+interface QuotaInfo {
+  unlimited: boolean;
+  checkedInToday: boolean;
+  checkInReward: number;
+  available: number;
+  bonusBalance: number;
+  monthlyGranted: number;
+  monthlyUsed: number;
+}
+
 export function AppSidebar() {
   const pathname = usePathname();
   const router = useRouter();
@@ -61,26 +79,25 @@ export function AppSidebar() {
   const [intro, setIntro] = useState(false);
   // 加入社区弹窗（双群二维码）
   const [communityOpen, setCommunityOpen] = useState(false);
-  // 今日积分（积分制额度展示）
-  const [credits, setCredits] = useState<{
-    used: number;
-    limit: number;
-    unlimited: boolean;
-  } | null>(null);
+  // 积分状态（余额模式：订阅月度积分 + 签到积分）
+  const [quota, setQuota] = useState<QuotaInfo | null>(null);
+  // 每日签到提醒弹窗 + 签到进行中
+  const [checkinOpen, setCheckinOpen] = useState(false);
+  const [checkinPending, setCheckinPending] = useState(false);
+  const [checkinDone, setCheckinDone] = useState(false);
 
-  useEffect(() => {
-    fetch("/api/quota")
-      .then((r) => (r.ok ? r.json() : null))
-      .then((d) => {
-        if (!d) return;
-        setCredits({
-          used: d.usedCredits ?? 0,
-          limit: d.limitCredits ?? 0,
-          unlimited: !!d.unlimited,
-        });
-      })
-      .catch(() => {});
-  }, []);
+  // 拉取积分状态 + 每天首次访问弹出签到提醒
+  async function loadQuota(): Promise<QuotaInfo | null> {
+    try {
+      const r = await fetch("/api/quota");
+      if (!r.ok) return null;
+      const d = (await r.json()) as QuotaInfo;
+      setQuota(d);
+      return d;
+    } catch {
+      return null;
+    }
+  }
 
   useEffect(() => {
     setCollapsed(localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -88,6 +105,14 @@ export function AppSidebar() {
       sessionStorage.setItem(INTRO_KEY, "1");
       setIntro(true);
     }
+    loadQuota().then((d) => {
+      if (!d || d.unlimited || d.checkedInToday) return;
+      const key = `mb-checkin-remind-${todayKey()}`;
+      if (localStorage.getItem(key)) return;
+      localStorage.setItem(key, "1");
+      setCheckinOpen(true);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   function toggle() {
@@ -97,9 +122,41 @@ export function AppSidebar() {
     });
   }
 
+  async function doCheckIn() {
+    if (checkinPending) return;
+    setCheckinPending(true);
+    try {
+      const r = await fetch("/api/quota/check-in", { method: "POST" });
+      const d = await r.json();
+      if (d.ok) {
+        setCheckinDone(true);
+        setQuota((q) =>
+          q
+            ? {
+                ...q,
+                checkedInToday: true,
+                bonusBalance: (q.bonusBalance ?? 0) + (d.granted ?? 0),
+                available: (q.available ?? 0) + (d.granted ?? 0),
+              }
+            : q
+        );
+        toast({ title: "签到成功", description: `+${d.granted ?? 50} 积分已到账`, type: "success" });
+      } else if (d.already) {
+        setQuota((q) => (q ? { ...q, checkedInToday: true } : q));
+        setCheckinDone(true);
+        toast({ title: "今天已经签到过了", type: "default" });
+      }
+    } catch {
+      toast({ title: "签到失败，请稍后再试", type: "error" });
+    } finally {
+      setCheckinPending(false);
+    }
+  }
+
   const d = (ms: number) =>
     intro ? { ["--d" as string]: `${ms}ms` } : undefined;
   const anim = intro ? "side-in" : "";
+  const checkedIn = !!quota?.checkedInToday;
 
   return (
     <>
@@ -141,7 +198,7 @@ export function AppSidebar() {
       className="sticky top-0 hidden h-[100dvh] shrink-0 overflow-hidden py-4 pl-4 md:block"
       style={{ width: collapsed ? 76 : 288, transition: `width ${EASE}` }}
     >
-      {/* 整体大卡片：品牌 + 导航 + 会员 + 用户 */}
+      {/* 整体大卡片：品牌 + 导航 + 签到 + 会员 + 用户 */}
       <div
         className={cn(
           "flex h-full flex-col overflow-hidden rounded-3xl border border-border-neutral-l1 bg-bg-base-default shadow-[var(--shadow-card)]",
@@ -222,8 +279,36 @@ export function AppSidebar() {
           })}
         </nav>
 
-        {/* 底部：会员卡 + 用户 */}
+        {/* 底部：每日签到 + 会员卡 + 用户 */}
         <div className={cn("mt-auto", collapsed ? "px-1.5 pb-3" : "p-3 pb-4")}>
+          {/* 每日签到（积分制：签到积分长期有效） */}
+          {!collapsed && quota && !quota.unlimited && (
+            <button
+              type="button"
+              onClick={doCheckIn}
+              disabled={checkinPending || checkedIn}
+              className={cn(
+                "mb-3 flex w-full items-center gap-3 rounded-2xl border p-3 text-left transition-colors",
+                checkedIn
+                  ? "border-[#DFF3E8] bg-[#F0FAF4]"
+                  : "border-[#F5DFC0] bg-gradient-to-br from-[#FFF7EA] to-[#FBEAD0] hover:border-[#EBCF9F]"
+              )}
+            >
+              {checkedIn ? (
+                <CheckCircle2 className="h-5 w-5 shrink-0 text-[#15A877]" />
+              ) : (
+                <Gift className="h-5 w-5 shrink-0 text-[#D99A00]" />
+              )}
+              <span className="min-w-0 flex-1">
+                <span className="block text-[13px] font-medium text-text-default">
+                  {checkedIn ? "今日已签到" : "每日签到"}
+                </span>
+                <span className="block text-[11px] text-text-tertiary">
+                  {checkedIn ? "明天再来领 50 积分" : `签到领 ${quota.checkInReward ?? 50} 积分`}
+                </span>
+              </span>
+            </button>
+          )}
           {!collapsed && (
             <div
               className={cn(
@@ -269,36 +354,13 @@ export function AppSidebar() {
                     {user?.name || "墨笔用户"}
                   </span>
                   <span className="block truncate text-[11px] text-text-tertiary">
-                    {user?.email || ""}
+                    我的积分 {quota ? (quota.unlimited ? "不限量" : quota.available) : "…"}
                   </span>
                 </span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
-              {/* 今日积分（积分制额度展示） */}
-              {credits && (
-                <div className="px-2 pb-1.5 pt-1">
-                  <div className="flex items-center justify-between text-xs">
-                    <span className="text-text-tertiary">今日积分</span>
-                    <span className="num font-medium text-text-default">
-                      {credits.unlimited ? "不限量" : `${credits.used} / ${credits.limit}`}
-                    </span>
-                  </div>
-                  {!credits.unlimited && (
-                    <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-bg-overlay-l2">
-                      <div
-                        className="h-full rounded-full bg-bg-brand transition-[width]"
-                        style={{ width: `${Math.min(100, (credits.used / credits.limit) * 100)}%` }}
-                      />
-                    </div>
-                  )}
-                </div>
-              )}
-              <DropdownMenuItem
-                onClick={() => {
-                  setTimeout(() => setCommunityOpen(true), 350);
-                }}
-              >
+              <DropdownMenuItem onClick={() => setCommunityOpen(true)}>
                 <Users className="mr-2 h-4 w-4" />
                 加入社区
               </DropdownMenuItem>
@@ -318,20 +380,60 @@ export function AppSidebar() {
           </DropdownMenu>
         </div>
       </div>
-    </aside>
+      </aside>
 
-    {/* 加入社区：双群二维码 */}
-    <Dialog open={communityOpen} onOpenChange={setCommunityOpen}>
-      <DialogContent className="max-w-md rounded-2xl p-6">
-        <DialogHeader className="p-0 pr-8">
-          <DialogTitle>加入社区</DialogTitle>
-        </DialogHeader>
-        <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: "0 0 4px 0" }}>
-          扫码加入创作者交流群，和作者们一起让 AI 写作更好用：
-        </p>
-        <ContactQr />
-      </DialogContent>
-    </Dialog>
+      {/* 加入社区：双群二维码 */}
+      <Dialog open={communityOpen} onOpenChange={setCommunityOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-6">
+          <DialogHeader className="p-0 pr-8">
+            <DialogTitle>加入社区</DialogTitle>
+          </DialogHeader>
+          <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: "0 0 4px 0" }}>
+            扫码加入创作者交流群，和作者们一起让 AI 写作更好用：
+          </p>
+          <ContactQr />
+        </DialogContent>
+      </Dialog>
+
+      {/* 每日签到提醒弹窗（每天首次访问弹出一次） */}
+      <Dialog open={checkinOpen} onOpenChange={setCheckinOpen}>
+        <DialogContent className="max-w-sm rounded-2xl p-6">
+          <DialogHeader className="p-0">
+            <DialogTitle>每日签到</DialogTitle>
+          </DialogHeader>
+          {checkinDone ? (
+            <div className="flex flex-col items-center py-4 text-center">
+              <CheckCircle2 className="h-12 w-12 text-[#15A877]" />
+              <p className="mt-3 text-base font-semibold text-text-default">签到成功</p>
+              <p className="mt-1 text-sm text-text-tertiary">
+                +{quota?.checkInReward ?? 50} 积分已到账，当前可用 {quota?.available ?? 0} 积分
+              </p>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center py-2 text-center">
+              <span className="flex h-14 w-14 items-center justify-center rounded-full bg-gradient-to-br from-[#FFF7EA] to-[#FBEAD0]">
+                <Gift className="h-7 w-7 text-[#D99A00]" />
+              </span>
+              <p className="mt-3 text-base font-semibold text-text-default">
+                签到领 {quota?.checkInReward ?? 50} 积分
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-text-tertiary">
+                连续签到积累积分，AI 生成长文时按用量扣减，签到积分长期有效
+              </p>
+            </div>
+          )}
+          {!checkinDone && !checkedIn && (
+            <button
+              type="button"
+              onClick={doCheckIn}
+              disabled={checkinPending}
+              className="btn-cta h-10 w-full rounded-full bg-neutral-900 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-60"
+            >
+              {checkinPending ? "签到中..." : "立即签到领取"}
+            </button>
+          )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
