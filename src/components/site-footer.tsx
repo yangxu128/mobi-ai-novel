@@ -52,7 +52,7 @@ export function SiteFooter() {
             </p>
             <div className="mt-4 flex gap-2">
               <a
-                href="https://github.com"
+                href="https://github.com/yangxu128/mobi-ai-novel"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="GitHub"
