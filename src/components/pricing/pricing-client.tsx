@@ -2,13 +2,11 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { Check, Loader2, Sparkles } from "lucide-react";
+import { Check, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "@/components/ui/toast";
 import { SiteFooter } from "@/components/site-footer";
-import { changeMyPlanAction } from "@/actions/subscription";
 
 type Plan = "FREE" | "BASIC" | "STANDARD" | "PRO" | "ULTIMATE";
 
@@ -110,32 +108,6 @@ interface Props {
 
 export function PricingClient({ currentPlan, expiresAt }: Props) {
   const [active, setActive] = useState<Plan | "ADMIN" | null>(currentPlan);
-  const [pending, setPending] = useState<Plan | null>(null);
-
-  async function onSwitch(plan: Plan) {
-    if (!currentPlan || active === plan || pending) return;
-    setPending(plan);
-    try {
-      const res = await changeMyPlanAction(plan);
-      if (res.ok) {
-        setActive(plan);
-        toast({
-          title: plan === "FREE" ? "已切换到免费版" : "订阅成功",
-          description:
-            plan === "FREE"
-              ? "已降级为免费版"
-              : `已开通${PLANS.find((p) => p.name === plan)?.cn}，有效期 30 天`,
-          type: "success",
-        });
-      } else {
-        toast({ title: "切换失败", description: res.error, type: "error" });
-      }
-    } catch {
-      toast({ title: "网络错误，请重试", type: "error" });
-    } finally {
-      setPending(null);
-    }
-  }
 
   const isAdmin = active === "ADMIN";
 
@@ -233,22 +205,8 @@ export function PricingClient({ currentPlan, expiresAt }: Props) {
                     当前方案
                   </Button>
                 ) : (
-                  <Button
-                    className={`w-full ${plan.highlight ? "btn-glow" : ""}`}
-                    variant={plan.highlight ? "default" : "outline"}
-                    disabled={pending !== null}
-                    onClick={() => onSwitch(plan.name)}
-                  >
-                    {pending === plan.name ? (
-                      <>
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                        切换中…
-                      </>
-                    ) : plan.name === "FREE" ? (
-                      "降级为免费版"
-                    ) : (
-                      `切换到${plan.cn}`
-                    )}
+                  <Button className="w-full" variant="outline" disabled>
+                    联系管理员开通
                   </Button>
                 )}
               </CardContent>
@@ -258,7 +216,7 @@ export function PricingClient({ currentPlan, expiresAt }: Props) {
       </div>
 
       <p className="text-center text-xs text-text-tertiary mt-8">
-        内测阶段未接入支付，套餐切换即时生效、无需付费；正式上线后将接入支付流程
+        套餐调整请联系管理员开通；正式上线后将接入支付流程，支持自助订阅
       </p>
       </div>
       <SiteFooter />

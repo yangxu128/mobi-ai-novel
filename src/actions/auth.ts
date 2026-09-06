@@ -49,7 +49,9 @@ export async function registerAction(formData: FormData) {
         email,
         name,
         passwordHash,
-        subscription: { create: { plan: "FREE", status: "active" } },
+        // 新用户默认基础套餐（BASIC：1000 积分/月），积分按 role 读取须同步设置
+        role: "BASIC",
+        subscription: { create: { plan: "BASIC", status: "active" } },
       },
     });
   } catch {
