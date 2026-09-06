@@ -29,7 +29,7 @@ export function SiteFooter() {
       title: "公司",
       links: [
         { label: "关于我们", href: "/about" },
-        { label: "联系我们", href: "mailto:hello@mobi.ai" },
+        { label: "联系我们", href: "/about" },
         { label: "加入我们", href: "/about#join" },
       ],
     },
@@ -61,7 +61,7 @@ export function SiteFooter() {
                 <Github className="h-4 w-4" />
               </a>
               <a
-                href="mailto:hello@mobi.ai"
+                href="mailto:1419644549@qq.com"
                 aria-label="邮件联系"
                 className="flex h-8 w-8 items-center justify-center rounded-lg border border-border-neutral-l1 text-text-tertiary transition-colors hover:bg-bg-overlay-l1 hover:text-text-default"
               >

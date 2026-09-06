@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { SimplePage, Section } from "@/components/simple-page";
+import { ContactQr } from "@/components/about/contact-qr";
+import { Github } from "lucide-react";
 
 export const metadata: Metadata = {
   title: "关于我们 - 墨笔 AI 写作平台",
@@ -18,14 +20,33 @@ export default function AboutPage() {
         <p><strong>节奏科学</strong>——内置番茄网文节奏体系与结尾钩子设计，让「写完」走向「有人追读」。</p>
       </Section>
       <Section title="联系我们">
-        <p>产品建议、合作洽谈或任何问题，欢迎来信：<a href="mailto:hello@mobi.ai" className="text-text-brand hover:underline">hello@mobi.ai</a>。我们认真阅读每一封邮件。</p>
+        <p>加入创作者交流群，和我们一起让 AI 写作更好用：</p>
+        <ContactQr />
+        <div className="flex flex-wrap items-center gap-3 pt-1">
+          <a
+            href="https://github.com/yangxu128/mobi-ai-novel"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 rounded-full border border-border-neutral-l2 bg-bg-base-default px-4 py-2 text-sm font-medium text-text-default transition-colors hover:border-border-neutral-l3 hover:bg-bg-overlay-l1"
+          >
+            <Github className="h-4 w-4" />
+            GitHub 开源仓库
+          </a>
+          <a
+            href="mailto:1419644549@qq.com"
+            className="inline-flex items-center gap-2 rounded-full px-2 py-2 text-sm text-text-secondary transition-colors hover:text-text-brand"
+          >
+            或邮件联系 1419644549@qq.com
+          </a>
+        </div>
+        <p>产品建议、合作洽谈或任何问题，我们认真阅读每一封邮件。</p>
       </Section>
       <Section title="加入我们">
         <p id="join">我们在寻找同样热爱故事的伙伴：</p>
         <p>· 前端工程师（React / Next.js，热爱打磨交互细节）</p>
         <p>· AI 应用工程师（Prompt 工程 / RAG / Agent）</p>
         <p>· 网文产品运营（深度网文阅读者优先）</p>
-        <p>以上职位长期有效，简历发送至 <a href="mailto:join@mobi.ai" className="text-text-brand hover:underline">join@mobi.ai</a>，附上你最想改进的一个写作工具痛点更佳。</p>
+        <p>以上职位长期有效，简历发送至 <a href="mailto:1419644549@qq.com" className="text-text-brand hover:underline">1419644549@qq.com</a>，附上你最想改进的一个写作工具痛点更佳。</p>
       </Section>
     </SimplePage>
   );

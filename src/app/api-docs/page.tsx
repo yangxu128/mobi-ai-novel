@@ -17,7 +17,7 @@ export default function ApiDocsPage() {
       </Section>
       <Section title="内测说明">
         <p>当前 API 仅限平台前端调用（需登录态），暂不对第三方开放。正式开放时会在这里提供鉴权方式、请求/响应示例与错误码表。</p>
-        <p>想第一时间接入？发邮件到 <a href="mailto:hello@mobi.ai" className="text-text-brand hover:underline">hello@mobi.ai</a> 加入内测名单。</p>
+        <p>想第一时间接入？发邮件到 <a href="mailto:1419644549@qq.com" className="text-text-brand hover:underline">1419644549@qq.com</a> 加入内测名单。</p>
       </Section>
       <Section title="现在能做什么">
         <p>在平台内你可以立即使用全部 AI 能力：<Link href="/register" className="text-text-brand hover:underline">免费注册</Link>后，从一句灵感开始生成你的第一章。</p>

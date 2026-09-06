@@ -40,7 +40,7 @@ const FAQS: Array<{ q: string; a: string }> = [
 
 export default function FaqPage() {
   return (
-    <SimplePage title="常见问题" description="关于墨笔的常见疑问与解答。没有找到答案？发邮件到 hello@mobi.ai，我们会尽快回复。">
+    <SimplePage title="常见问题" description="关于墨笔的常见疑问与解答。没有找到答案？发邮件到 1419644549@qq.com，我们会尽快回复。">
       <Accordion type="single" collapsible className="mt-2">
         {FAQS.map((f, i) => (
           <AccordionItem key={i} value={`item-${i}`}>
