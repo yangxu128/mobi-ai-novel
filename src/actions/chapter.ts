@@ -5,6 +5,7 @@ import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
 import { extractChapterWiki } from "@/lib/ai/wiki";
+import { htmlToText } from "@/lib/utils";
 
 /**
  * 章节相关 Server Actions。
@@ -24,7 +25,8 @@ export async function saveChapterContentAction(chapterId: string, content: strin
     return { ok: false, error: "章节不存在或无权限" };
   }
 
-  const wordCount = content.replace(/\s/g, "").length;
+  // 字数按纯文本统计（HTML 标签不计入），与流水线/工作台显示口径一致
+  const wordCount = htmlToText(content).replace(/\s/g, "").length;
   await prisma.chapter.update({
     where: { id: chapterId },
     data: { content, wordCount },
