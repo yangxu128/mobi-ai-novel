@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/toast";
+import { formatDate } from "@/lib/utils";
 import { updateUserRoleAction, deleteUserAction, updateUserSubscriptionAction } from "@/actions/admin";
 import { Search, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 
@@ -234,7 +235,7 @@ export function AdminUsersClient({
                     <td className="num px-5 py-3.5 text-center text-text-default">{u._count.projects}</td>
                     <td className="num px-5 py-3.5 text-center text-text-default">{u._count.aiUsageLogs}</td>
                     <td className="px-5 py-3.5 text-text-tertiary">
-                      {new Date(u.createdAt).toLocaleDateString("zh-CN")}
+                      {formatDate(u.createdAt)}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <AlertDialog>

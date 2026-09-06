@@ -3,6 +3,7 @@ import { Button } from "@/components/ui/button";
 import { ChevronLeft, ChevronRight, ScrollText, Search } from "lucide-react";
 import Link from "next/link";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { beijingDayStart, formatDateTime } from "@/lib/utils";
 
 const actionLabels: Record<string, string> = {
   inspire: "灵感卡",
@@ -32,7 +33,7 @@ export default async function AdminLogsPage({
   if (email) AND.push({ user: { email: { contains: email, mode: "insensitive" as const } } });
   const where = AND.length ? { AND } : {};
 
-  const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+  const todayStart = beijingDayStart();
 
   const [logs, total, todayCount, todayAgg] = await Promise.all([
     prisma.aIUsageLog.findMany({
@@ -157,7 +158,7 @@ export default async function AdminLogsPage({
                 logs.map((l) => (
                   <tr key={l.id} className="transition-colors hover:bg-bg-overlay-l1/60">
                     <td className="px-5 py-3 text-text-tertiary text-xs whitespace-nowrap">
-                      {new Date(l.createdAt).toLocaleString("zh-CN")}
+                      {formatDateTime(l.createdAt)}
                     </td>
                     <td className="px-5 py-3 text-xs">
                       <div className="text-text-default">{l.user?.name || "未知"}</div>

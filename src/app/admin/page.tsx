@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { AdminPageHeader } from "@/components/admin/admin-page-header";
+import { beijingDayStart, beijingDayKey, formatDate } from "@/lib/utils";
 import { Users, FolderOpen, FileText, Sparkles, ArrowRight, TrendingUp, UserPlus, Layers } from "lucide-react";
 
 // 注：session 校验已下沉到 admin/layout.tsx，避免在每个子页面重复
@@ -19,10 +20,10 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default async function AdminDashboardPage() {
-  const sevenDaysAgo = new Date();
+  const sevenDaysAgo = beijingDayStart(new Date(Date.now() - 6 * 86400000));
   sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
   sevenDaysAgo.setHours(0, 0, 0, 0);
-  const todayStart = new Date(new Date().setHours(0, 0, 0, 0));
+  const todayStart = beijingDayStart();
 
   const [
     userCount,
@@ -78,18 +79,13 @@ export default async function AdminDashboardPage() {
   // 近 7 天每日 AI Token 数
   const dailyTokens: { date: string; tokens: number }[] = [];
   for (let i = 0; i < 7; i++) {
-    const d = new Date(sevenDaysAgo);
-    d.setDate(d.getDate() + i);
-    const key = `${d.getMonth() + 1}/${d.getDate()}`;
+    const day = new Date(sevenDaysAgo.getTime() + i * 86400000);
+    const key = beijingDayKey(day);
+    const label = `${Number(key.slice(5, 7))}/${Number(key.slice(8, 10))}`;
     const tokens = recentLogs
-      .filter((l) => {
-        const ld = new Date(l.createdAt);
-        return ld.getFullYear() === d.getFullYear() &&
-          ld.getMonth() === d.getMonth() &&
-          ld.getDate() === d.getDate();
-      })
+      .filter((l) => beijingDayKey(new Date(l.createdAt)) === key)
       .reduce((s, l) => s + (l.promptTokens || 0) + (l.completionTokens || 0), 0);
-    dailyTokens.push({ date: key, tokens });
+    dailyTokens.push({ date: label, tokens });
   }
   const maxTokens = Math.max(...dailyTokens.map((d) => d.tokens), 1);
   const isToday = (i: number) => i === dailyTokens.length - 1;
@@ -252,7 +248,7 @@ export default async function AdminDashboardPage() {
                     {ROLE_LABEL[u.role] || u.role}
                   </span>
                   <div className="num mt-0.5 text-[10px] text-text-tertiary">
-                    {new Date(u.createdAt).toLocaleDateString("zh-CN")}
+                    {formatDate(u.createdAt)}
                   </div>
                 </div>
               </div>

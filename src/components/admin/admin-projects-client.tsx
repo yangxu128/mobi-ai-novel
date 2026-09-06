@@ -24,6 +24,7 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { toast } from "@/components/ui/toast";
+import { formatDate } from "@/lib/utils";
 import { deleteProjectAdminAction } from "@/actions/admin";
 import { Search, ChevronLeft, ChevronRight, Trash2 } from "lucide-react";
 
@@ -189,7 +190,7 @@ export function AdminProjectsClient({
                     <td className="num px-5 py-3.5 text-center text-text-default">{p._count.chapters}</td>
                     <td className="num px-5 py-3.5 text-center text-text-default">{p.wordCount.toLocaleString()}</td>
                     <td className="px-5 py-3.5 text-text-tertiary text-xs">
-                      {new Date(p.updatedAt).toLocaleDateString("zh-CN")}
+                      {formatDate(p.updatedAt)}
                     </td>
                     <td className="px-5 py-3.5 text-right">
                       <AlertDialog>

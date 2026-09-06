@@ -13,6 +13,16 @@ function dayKeyInTz(d: Date): string {
   return d.toLocaleDateString("sv-SE", { timeZone: DISPLAY_TZ });
 }
 
+/** 北京时间当天 00:00 对应的 UTC 时刻（用于"今日"统计的日界） */
+export function beijingDayStart(d: Date = new Date()): Date {
+  return new Date(`${dayKeyInTz(d)}T00:00:00+08:00`);
+}
+
+/** 北京时间的日期键（YYYY-MM-DD，用于按天分组） */
+export function beijingDayKey(d: Date): string {
+  return dayKeyInTz(d);
+}
+
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
