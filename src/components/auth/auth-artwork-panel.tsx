@@ -4,7 +4,7 @@ import { PenLine } from "lucide-react";
 const STATS = [
   { v: "3 种", l: "创作模式", dot: "bg-bg-brand" },
   { v: "6 步", l: "创作流水线", dot: "bg-[#F2A90C]" },
-  { v: "10-16K", l: "上下文窗口", dot: "bg-[#FFB25C]" },
+  { v: "1M", l: "上下文窗口", dot: "bg-[#FFB25C]" },
   { v: "500 字/天", l: "免费 AI 续写", dot: "bg-[#FF7A5C]" },
 ];
 
