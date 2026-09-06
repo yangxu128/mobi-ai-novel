@@ -309,28 +309,6 @@ export function AppSidebar() {
               </span>
             </button>
           )}
-          {!collapsed && (
-            <div
-              className={cn(
-                "rounded-2xl bg-gradient-to-br from-[#FFF7EA] to-[#FBEAD0] p-4",
-                anim
-              )}
-              style={d(290)}
-            >
-              <div className="flex items-center gap-2 text-sm font-medium text-text-default">
-                <Crown className="h-4 w-4 text-[#D99A00]" />
-                会员专享
-              </div>
-              <p className="mt-1 text-[11px] text-text-tertiary">解锁更多创作权益</p>
-              <Link
-                href="/pricing"
-                prefetch
-                className="mt-3 flex h-9 w-full items-center justify-center rounded-full border border-[#F0D9B8] bg-white text-xs font-medium text-text-brand transition-colors hover:bg-[#FFF6EA]"
-              >
-                升级会员
-              </Link>
-            </div>
-          )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button
