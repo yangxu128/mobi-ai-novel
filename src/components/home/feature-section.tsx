@@ -91,7 +91,7 @@ const FEATURES = [
     title: "分层上下文",
     short: "长篇不爆窗口",
     desc: "近期全文 + 中期摘要 + 远期大纲三层管理，精准控制每一次 AI 调用的上下文窗口。",
-    kpi: { to: 16, suffix: "K", label: "上下文窗口（K tokens）" },
+    kpi: { to: 1, suffix: "M", label: "上下文窗口（M tokens）" },
     Mock: LayersMock,
   },
   {
