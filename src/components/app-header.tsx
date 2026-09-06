@@ -3,8 +3,16 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { signOut, useSession } from "next-auth/react";
+import { useState } from "react";
 import { PenLine, LogOut, Plus, LayoutGrid, Shield } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import { ContactQr } from "@/components/about/contact-qr";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +33,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
  */
 export function AppHeader() {
   const { data: session, status } = useSession();
+  // 加入社区弹窗（双群二维码）
+  const [communityOpen, setCommunityOpen] = useState(false);
   const router = useRouter();
   const pathname = usePathname();
   const isLanding = pathname === "/";
@@ -53,6 +63,13 @@ export function AppHeader() {
           <Link href="/#modes" prefetch className="transition-colors hover:text-text-default">创作模式</Link>
           <Link href="/#capabilities" prefetch className="transition-colors hover:text-text-default">核心能力</Link>
           <Link href="/pricing" prefetch className="transition-colors hover:text-text-default">定价</Link>
+          <button
+            type="button"
+            onClick={() => setCommunityOpen(true)}
+            className="transition-colors hover:text-text-default"
+          >
+            加入社区
+          </button>
         </nav>
 
         <nav className="flex items-center gap-2 min-w-[180px] justify-end">
@@ -140,6 +157,19 @@ export function AppHeader() {
           )}
         </nav>
       </div>
+
+      {/* 加入社区：双群二维码 */}
+      <Dialog open={communityOpen} onOpenChange={setCommunityOpen}>
+        <DialogContent className="max-w-md rounded-2xl p-6">
+          <DialogHeader className="p-0 pr-8">
+            <DialogTitle>加入社区</DialogTitle>
+          </DialogHeader>
+          <p style={{ fontSize: 13, color: "var(--text-tertiary)", margin: "0 0 4px 0" }}>
+            扫码加入创作者交流群，和作者们一起让 AI 写作更好用：
+          </p>
+          <ContactQr />
+        </DialogContent>
+      </Dialog>
     </header>
   );
 }
