@@ -50,7 +50,11 @@ export async function saveChapterContentAction(chapterId: string, content: strin
     after(async () => {
       try {
         const res = await extractChapterWiki(chapterId);
-        if (!res.ok && res.skipped && res.skipped !== "throttled" && res.skipped !== "inflight" && res.skipped !== "empty") {
+        if (res.ok) {
+          // 提取是响应后异步落库的，完成后需再失效路由缓存，
+          // 客户端下次 refresh（如切到"记忆"页签）才能拿到新记忆
+          revalidatePath(`/project/${chapter.projectId}`);
+        } else if (res.skipped && res.skipped !== "throttled" && res.skipped !== "inflight" && res.skipped !== "empty") {
           console.warn("[wiki] 自动提取跳过:", res.skipped);
         }
       } catch (e) {
@@ -152,7 +156,9 @@ export async function markChapterFinalAction(chapterId: string) {
   after(async () => {
     try {
       const res = await extractChapterWiki(chapterId, { force: true });
-      if (!res.ok) {
+      if (res.ok) {
+        revalidatePath(`/project/${chapter.project.id}`);
+      } else {
         console.warn("[wiki] 定稿提取未完成:", res.skipped || res.error);
       }
     } catch (e) {

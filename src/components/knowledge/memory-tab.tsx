@@ -8,7 +8,8 @@
  * 操作：自动记忆开关、单章强制更新、游标式重建。
  */
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Brain,
   RefreshCw,
@@ -39,12 +40,39 @@ interface Props {
   activeChapterId?: string | null;
 }
 
+/** 挂载刷新节流间隔（模块级，工作台/对话两个侧栏实例共享） */
+const MEMORY_TAB_REFRESH_INTERVAL_MS = 15_000;
+let lastMemoryTabRefreshAt = 0;
+
 export function MemoryTab({ memory, projectId, activeChapterId }: Props) {
+  const router = useRouter();
   const [autoMemory, setAutoMemory] = useState(memory.autoMemory);
   const [updating, setUpdating] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const [, startTransition] = useTransition();
+
+  const hasAny =
+    memory.characterStates.length > 0 ||
+    memory.foreshadows.length > 0 ||
+    memory.events.length > 0;
+
+  // 切到记忆页签时拉取最新服务端数据：记忆提取是保存后 after() 异步落库的，
+  // 页面不会自动推送，不主动 refresh 就永远停留在首次挂载时的旧数据
+  useEffect(() => {
+    const now = Date.now();
+    if (now - lastMemoryTabRefreshAt < MEMORY_TAB_REFRESH_INTERVAL_MS) return;
+    lastMemoryTabRefreshAt = now;
+    router.refresh();
+  }, [router]);
+
+  // 自动记忆开启但暂无数据：提取可能仍在进行，8s 后补刷一次
+  // （覆盖"保存后立刻点开记忆页签、LLM 尚未提取完"的场景；数据到位后自动停止）
+  useEffect(() => {
+    if (hasAny || !autoMemory) return;
+    const t = setTimeout(() => router.refresh(), 8000);
+    return () => clearTimeout(t);
+  }, [hasAny, autoMemory, router]);
 
   async function onToggleAuto(enabled: boolean) {
     setAutoMemory(enabled);
@@ -104,11 +132,6 @@ export function MemoryTab({ memory, projectId, activeChapterId }: Props) {
       }
     });
   }
-
-  const hasAny =
-    memory.characterStates.length > 0 ||
-    memory.foreshadows.length > 0 ||
-    memory.events.length > 0;
 
   return (
     <div className="space-y-3">

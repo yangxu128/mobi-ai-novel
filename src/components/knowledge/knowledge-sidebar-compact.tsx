@@ -26,6 +26,14 @@ interface ActiveOutline {
 
 const CN_NUM = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
 
+/** memory 未传时的类型安全兜底（服务端目前总是构造完整对象） */
+const EMPTY_MEMORY: StoryMemoryView = {
+  autoMemory: false,
+  characterStates: [],
+  foreshadows: [],
+  events: [],
+};
+
 function volumeLabel(n: number | null | undefined): string {
   if (n == null) return "未分卷";
   if (n <= 0) return `卷${n}`;
@@ -260,16 +268,15 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
             })()
           ))}
 
-        {tab === "memory" &&
-          (!memory || countByTab.memory === 0 ? (
-            <KbEmpty hint={emptyByTab.memory} />
-          ) : (
-            <MemoryTab
-              memory={memory}
-              projectId={projectId}
-              activeChapterId={activeChapterId ?? null}
-            />
-          ))}
+        {tab === "memory" && (
+          // 始终渲染 MemoryTab：空态展示与"自动记忆/更新本章/重建"操作栏
+          // 都在其内部，记忆为空时不能只渲染空提示（否则操作入口消失）
+          <MemoryTab
+            memory={memory ?? EMPTY_MEMORY}
+            projectId={projectId}
+            activeChapterId={activeChapterId ?? null}
+          />
+        )}
       </div>
 
       {/* 管理知识库入口：跳转流水线（世界观/角色卡步骤） */}
