@@ -66,9 +66,12 @@ const TEXTAREA_FIELDS: Array<{ key: keyof Pick<CharDraft, "appearance" | "person
 export function KbCharacterSection({
   projectId,
   characters,
+  embedded,
 }: {
   projectId: string;
   characters: CharacterView[];
+  /** 嵌入工作台右侧栏时隐藏分区大标题（页签已标明分区），按钮改紧凑、单列布局 */
+  embedded?: boolean;
 }) {
   const [dialog, setDialog] = useState<CharDraft | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -124,20 +127,28 @@ export function KbCharacterSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-text-default">角色</h2>
-          <p className="mt-0.5 text-xs text-text-tertiary">角色卡设定，AI 扩写时自动注入上下文</p>
-        </div>
-        <Button onClick={openNew} className="h-8 rounded-xl px-3 text-xs">
-          <Plus className="h-3.5 w-3.5" /> 新增角色
+      <div className={embedded ? "flex justify-end" : "flex items-center justify-between"}>
+        {!embedded && (
+          <div>
+            <h2 className="text-base font-semibold text-text-default">角色</h2>
+            <p className="mt-0.5 text-xs text-text-tertiary">角色卡设定，AI 扩写时自动注入上下文</p>
+          </div>
+        )}
+        <Button
+          onClick={openNew}
+          className={embedded ? "h-7 rounded-lg px-2.5 text-xs" : "h-8 rounded-xl px-3 text-xs"}
+        >
+          <Plus className="h-3.5 w-3.5" /> 新增{embedded ? "" : "角色"}
         </Button>
       </div>
 
-      <div className="mt-4 grid gap-2 md:grid-cols-2">
+      <div className={cn("mt-2 grid gap-2", !embedded && "mt-4 md:grid-cols-2")}>
         {characters.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-border-neutral-l2 py-14 text-center text-sm text-text-tertiary md:col-span-2">
-            暂无角色，点击右上角「新增角色」开始
+          <div className={cn(
+            "rounded-2xl border border-dashed border-border-neutral-l2 py-14 text-center text-sm text-text-tertiary",
+            !embedded && "md:col-span-2"
+          )}>
+            {embedded ? "暂无角色，点击上方「新增」开始" : "暂无角色，点击右上角「新增角色」开始"}
           </div>
         )}
         {characters.map((c) => (

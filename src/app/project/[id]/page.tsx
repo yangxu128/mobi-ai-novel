@@ -13,7 +13,8 @@ const VIEW_TO_MODE: Record<string, ViewMode> = {
   pipeline: "PIPELINE",
   workbench: "WORKBENCH",
   chat: "CHAT",
-  knowledge: "KNOWLEDGE",
+  // 旧链接兼容：知识库管理已并入工作台右侧栏
+  knowledge: "WORKBENCH",
 };
 
 export default async function ProjectPage({
@@ -34,13 +35,10 @@ export default async function ProjectPage({
     initialView = VIEW_TO_MODE[viewQuery];
   }
 
-  // 一次 SSR：模式更新 + 完整项目数据（覆盖四个视图所需的所有字段）
+  // 一次 SSR：模式更新 + 完整项目数据（覆盖各视图所需的所有字段）
   // 各视图共享同一份数据，避免路由切换时重新查询
-  // KNOWLEDGE 是瞬态视图：不动 DB mode（保持上次持久化的创作模式）
   const [, project] = await Promise.all([
-    initialView === "KNOWLEDGE"
-      ? Promise.resolve(null)
-      : ensureProjectMode(projectId, session.user.id, initialView).catch(() => null),
+    ensureProjectMode(projectId, session.user.id, initialView).catch(() => null),
     prisma.project.findFirst({
       where: { id: projectId, userId: session.user.id },
       select: {

@@ -1,30 +1,23 @@
 "use client";
 
 /**
- * 工作台右侧知识库面板（只读展示 + 搜索过滤）。
- * 页签：人物设定 / 世界观 / 情节大纲（仅当前章节关联的大纲）/ 记忆（LLM wiki）。
- * 底部为管理知识库入口。
+ * 工作台/对话页右侧知识库面板：搜索过滤 + 四页签直接管理。
+ * 人物设定 / 世界观 / 情节大纲页签嵌入 Kb 分区组件（新增/编辑/删除），
+ * 记忆页签复用 MemoryTab（LLM wiki，含自动记忆开关/伏笔状态/重建）。
+ * 搜索框过滤传入各分区的数据，实现「浏览即管理」。
  */
 
 import { memo, useState } from "react";
-import { Feather, Search, LibraryBig } from "lucide-react";
+import { Search } from "lucide-react";
 import type { WorldSettingView, CharacterView } from "@/types/knowledge";
 import type { StoryMemoryView } from "@/types/memory";
-import { getCategoryLabel, roleLabel } from "@/lib/knowledge/labels";
 import { MemoryTab } from "@/components/knowledge/memory-tab";
-import { PROJECT_VIEW_CHANGE_EVENT } from "@/components/hooks/use-view-switcher";
+import { KbWorldSection } from "@/components/knowledge/kb-world-section";
+import { KbCharacterSection } from "@/components/knowledge/kb-character-section";
+import { KbOutlineSection, type OutlineItem } from "@/components/knowledge/kb-outline-section";
 import { cn } from "@/lib/utils";
 
 type KbTab = "chars" | "world" | "outline" | "memory";
-
-interface ActiveOutline {
-  sceneTitle?: string | null;
-  sceneSummary?: string | null;
-  plotPoints?: unknown;
-  volume?: number | null;
-}
-
-const CN_NUM = ["零", "一", "二", "三", "四", "五", "六", "七", "八", "九"];
 
 /** memory 未传时的类型安全兜底（服务端目前总是构造完整对象） */
 const EMPTY_MEMORY: StoryMemoryView = {
@@ -34,36 +27,11 @@ const EMPTY_MEMORY: StoryMemoryView = {
   events: [],
 };
 
-function volumeLabel(n: number | null | undefined): string {
-  if (n == null) return "未分卷";
-  if (n <= 0) return `卷${n}`;
-  if (n <= 10) return `卷${CN_NUM[n] || n}`;
-  if (n < 20) return `卷十${CN_NUM[n - 10] || ""}`;
-  if (n < 100) {
-    const t = Math.floor(n / 10);
-    const u = n % 10;
-    return `卷${CN_NUM[t]}十${u ? CN_NUM[u] : ""}`;
-  }
-  return `卷${n}`;
-}
-
-function plotPointCount(pp: unknown): number | null {
-  if (Array.isArray(pp)) return pp.length;
-  if (typeof pp === "string") {
-    try {
-      const parsed = JSON.parse(pp);
-      return Array.isArray(parsed) ? parsed.length : null;
-    } catch {
-      return null;
-    }
-  }
-  return null;
-}
-
 export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
   worldSettings,
   characters,
-  activeOutline,
+  outlines,
+  chapters,
   genre,
   projectId,
   memory,
@@ -71,8 +39,10 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
 }: {
   worldSettings: WorldSettingView[];
   characters: CharacterView[];
-  /** 当前编辑章节关联的大纲（仅展示这一条） */
-  activeOutline: ActiveOutline | null;
+  /** 全量大纲（情节大纲页签可管理全部条目） */
+  outlines: OutlineItem[];
+  /** 章节（大纲分区判断「已关联章节」徽标用） */
+  chapters: Array<{ id: string; title: string; outline?: { id: string } | null }>;
   genre?: string | null;
   projectId: string;
   /** 记忆 wiki（事件/角色状态/伏笔） */
@@ -98,26 +68,22 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
           .includes(q)
       )
     : worldSettings;
-  // 情节大纲：只显示当前章节关联的大纲
-  const currentOutline =
-    activeOutline && (!q || `${activeOutline.sceneTitle || ""} ${activeOutline.sceneSummary || ""}`.toLowerCase().includes(q))
-      ? activeOutline
-      : null;
+  const filteredOutlines = q
+    ? outlines.filter((o) =>
+        `${o.sceneTitle} ${o.sceneSummary} ${o.foreshadowing || ""}`
+          .toLowerCase()
+          .includes(q)
+      )
+    : outlines;
 
   const countByTab: Record<KbTab, number> = {
     chars: filteredChars.length,
     world: filteredWorld.length,
-    outline: currentOutline ? 1 : 0,
+    outline: filteredOutlines.length,
     memory:
       (memory?.characterStates.length || 0) +
       (memory?.foreshadows.length || 0) +
       (memory?.events.length || 0),
-  };
-  const emptyByTab: Record<KbTab, string> = {
-    chars: "暂无角色卡，可在流水线的「角色卡」步骤中添加",
-    world: "暂无世界观内容，可在流水线的「世界观」步骤中添加",
-    outline: "本章暂无关联大纲，可在流水线的「大纲」步骤中生成",
-    memory: "暂无记忆，保存章节后自动提取",
   };
 
   return (
@@ -133,7 +99,7 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="搜索设定、人物、世界观..."
+            placeholder="搜索设定、人物、大纲..."
           />
         </div>
       </div>
@@ -170,103 +136,34 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
         </button>
       </div>
 
+      {/* 分区内容：直接嵌入可编辑的 Kb 分区组件 */}
       <div className="min-h-0 flex-1 overflow-y-auto p-3">
-        {tab === "chars" &&
-          (filteredChars.length === 0 ? (
-            <KbEmpty hint={q ? "没有匹配的角色" : emptyByTab.chars} />
-          ) : (
-            <div className="space-y-2">
-              {filteredChars.map((c) => (
-                <div
-                  key={c.id}
-                  className="kb-card"
-                >
-                  <div className="flex items-center gap-2.5">
-                    <span className="brand-gradient flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-text-onbrand">
-                      {c.name.slice(0, 1)}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="truncate text-xs font-semibold text-text-default">{c.name}</div>
-                      <div className="mt-1 flex items-center gap-1">
-                        <span className="rounded bg-bg-brand-popup px-1.5 py-0.5 text-[10px] text-text-brand">
-                          {roleLabel[c.role] || c.role}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-                  {c.personality && (
-                    <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-text-tertiary">
-                      {c.personality}
-                    </p>
-                  )}
-                </div>
-              ))}
-            </div>
-          ))}
+        {tab === "chars" && (
+          <KbCharacterSection
+            projectId={projectId}
+            characters={filteredChars}
+            embedded
+          />
+        )}
 
-        {tab === "world" &&
-          (filteredWorld.length === 0 ? (
-            <KbEmpty hint={q ? "没有匹配的设定" : emptyByTab.world} />
-          ) : (
-            <div className="space-y-2">
-              {filteredWorld.map((w) => (
-                <div
-                  key={w.id}
-                  className="kb-card"
-                >
-                  <div className="flex items-center gap-1.5">
-                    <span className="rounded bg-bg-overlay-l1 px-1.5 py-0.5 text-[10px] text-text-tertiary">
-                      {getCategoryLabel(
-                        w.category,
-                        genre,
-                        `${w.title} ${typeof w.content === "string" ? w.content : ""}`
-                      )}
-                    </span>
-                    <span className="truncate text-xs font-medium text-text-default">{w.title}</span>
-                  </div>
-                  <p className="mt-1.5 line-clamp-2 text-xs leading-relaxed text-text-tertiary">
-                    {typeof w.content === "string"
-                      ? w.content
-                      : (w.content as { text?: string })?.text || JSON.stringify(w.content)}
-                  </p>
-                </div>
-              ))}
-            </div>
-          ))}
+        {tab === "world" && (
+          <KbWorldSection
+            projectId={projectId}
+            genre={genre}
+            worldSettings={filteredWorld}
+            embedded
+          />
+        )}
 
-        {tab === "outline" &&
-          (!currentOutline ? (
-            <KbEmpty hint={q ? "没有匹配的大纲" : emptyByTab.outline} />
-          ) : (
-            (() => {
-              const o = currentOutline;
-              const points = plotPointCount(o.plotPoints);
-              return (
-                <div className="kb-card">
-                  <div className="flex items-center gap-1.5">
-                    <span className="shrink-0 rounded bg-bg-brand-popup px-1.5 py-0.5 text-[10px] text-text-brand">
-                      {volumeLabel(o.volume)}
-                    </span>
-                    {o.sceneTitle && (
-                      <span className="truncate text-xs font-medium text-text-default">
-                        {o.sceneTitle}
-                      </span>
-                    )}
-                  </div>
-                  {o.sceneSummary && (
-                    <p className="mt-1.5 text-xs leading-relaxed text-text-tertiary">
-                      {o.sceneSummary}
-                    </p>
-                  )}
-                  {points != null && points > 0 && (
-                    <div className="mt-1.5 text-[10px] text-text-tertiary">
-                      {points} 个情节要点
-                    </div>
-                  )}
-                </div>
-              );
-            })()
-          ))}
+        {tab === "outline" && (
+          <KbOutlineSection
+            projectId={projectId}
+            outlines={filteredOutlines}
+            characters={characters}
+            chapters={chapters}
+            embedded
+          />
+        )}
 
         {tab === "memory" && (
           // 始终渲染 MemoryTab：空态展示与"自动记忆/更新本章/重建"操作栏
@@ -275,37 +172,10 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
             memory={memory ?? EMPTY_MEMORY}
             projectId={projectId}
             activeChapterId={activeChapterId ?? null}
+            deletable
           />
         )}
-      </div>
-
-      {/* 管理知识库入口：事件分发切换到 KNOWLEDGE 瞬态视图（无整页跳转） */}
-      <div className="border-t border-border-neutral-l1 p-3">
-        <button
-          type="button"
-          className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-border-neutral-l2 text-xs font-medium text-text-default transition-colors hover:bg-bg-overlay-l1"
-          onClick={() =>
-            window.dispatchEvent(
-              new CustomEvent(PROJECT_VIEW_CHANGE_EVENT, { detail: { view: "KNOWLEDGE" } })
-            )
-          }
-        >
-          <LibraryBig className="h-3.5 w-3.5 text-text-tertiary" />
-          管理知识库
-        </button>
       </div>
     </div>
   );
 });
-
-function KbEmpty({ hint }: { hint: string }) {
-  return (
-    <div className="flex h-full flex-col items-center justify-center py-14 text-center">
-      <span className="flex h-14 w-14 items-center justify-center rounded-full bg-bg-overlay-l1">
-        <Feather className="h-6 w-6 text-text-tertiary" />
-      </span>
-      <p className="mt-4 text-sm font-medium text-text-secondary">暂无内容</p>
-      <p className="mt-1.5 max-w-[200px] text-xs leading-relaxed text-text-tertiary">{hint}</p>
-    </div>
-  );
-}

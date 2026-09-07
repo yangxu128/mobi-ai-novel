@@ -27,6 +27,7 @@ interface Chapter {
   wordCount: number;
   status: string;
   outline?: {
+    id?: string;
     sceneTitle?: string | null;
     sceneSummary?: string | null;
     plotPoints?: unknown;
@@ -40,7 +41,9 @@ interface OutlineItem {
   chapter: number;
   sceneTitle: string;
   sceneSummary: string;
+  povCharacterId: string | null;
   plotPoints: unknown;
+  foreshadowing: string | null;
   order: number;
 }
 
@@ -391,13 +394,18 @@ function WorkbenchClientImpl({
         </TooltipProvider>
       </main>
 
-      {/* 右侧知识库（卡片式） */}
+      {/* 右侧知识库（卡片式）：四页签直接管理，无需跳转独立界面 */}
       {!focusMode && (
         <aside className={cn("hidden w-80 shrink-0 flex-col lg:flex", cardCls)}>
           <KnowledgeSidebarCompact
             worldSettings={project.worldSettings}
             characters={project.characters}
-            activeOutline={active?.outline ?? null}
+            outlines={project.outlines}
+            chapters={chapters.map((c) => ({
+              id: c.id,
+              title: c.title,
+              outline: c.outline?.id ? { id: c.outline.id } : null,
+            }))}
             genre={project.genre}
             projectId={project.id}
             memory={memory}

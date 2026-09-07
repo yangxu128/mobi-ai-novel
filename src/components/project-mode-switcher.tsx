@@ -16,11 +16,9 @@ export const VIEW_MODES = [
   { key: "PIPELINE", label: "流水线", query: "pipeline" },
   { key: "WORKBENCH", label: "工作台", query: "workbench" },
   { key: "CHAT", label: "对话共创", query: "chat" },
-  // KNOWLEDGE 是瞬态视图：仅 URL query 驱动，不写入 project.mode（DB enum 无此值）
-  { key: "KNOWLEDGE", label: "知识库", query: "knowledge" },
 ] as const;
 
-export type ViewMode = "PIPELINE" | "WORKBENCH" | "CHAT" | "KNOWLEDGE";
+export type ViewMode = "PIPELINE" | "WORKBENCH" | "CHAT";
 
 interface Props {
   current: ViewMode;

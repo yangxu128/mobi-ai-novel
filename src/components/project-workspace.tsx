@@ -10,7 +10,6 @@ import { useViewSwitcher } from "@/components/hooks/use-view-switcher";
 import type { ViewMode } from "@/components/project-mode-switcher";
 import type { StoryMemoryView } from "@/types/memory";
 import { KnowledgeSidebarCompact } from "@/components/knowledge/knowledge-sidebar-compact";
-import { KnowledgeManager } from "@/components/knowledge/knowledge-manager";
 import {
   Dialog,
   DialogContent,
@@ -396,43 +395,17 @@ function ProjectWorkspaceImpl({ project, memory, initialView }: Props) {
                 <KnowledgeSidebarCompact
                   worldSettings={project.worldSettings}
                   characters={project.characters}
-                  activeOutline={null}
+                  outlines={project.outlines}
+                  chapters={project.chapters.map((c) => ({
+                    id: c.id,
+                    title: c.title,
+                    outline: c.outline ? { id: c.outline.id } : null,
+                  }))}
                   genre={project.genre}
                   projectId={project.id}
                   memory={memory}
                 />
               </aside>
-            </div>
-          </div>
-        </div>
-
-        {/* 知识库管理视图（KNOWLEDGE 瞬态视图，不写入 project.mode） */}
-        <div
-          className="h-full"
-          style={{
-            display: activeView === "KNOWLEDGE" ? "block" : "none",
-            contentVisibility: activeView === "KNOWLEDGE" ? "visible" : "auto",
-            containIntrinsicSize: "0 600px",
-          } as React.CSSProperties}
-          aria-hidden={activeView !== "KNOWLEDGE"}
-        >
-          <div className="h-full flex flex-col">
-            <div className="flex-1 min-h-0 flex flex-col">
-              <KnowledgeManager
-                project={{
-                  id: project.id,
-                  genre: project.genre,
-                  worldSettings: project.worldSettings,
-                  characters: project.characters,
-                  outlines: project.outlines,
-                  chapters: project.chapters.map((c) => ({
-                    id: c.id,
-                    title: c.title,
-                    outline: c.outline ? { id: c.outline.id } : null,
-                  })),
-                }}
-                memory={memory ?? { autoMemory: false, characterStates: [], foreshadows: [], events: [] }}
-              />
             </div>
           </div>
         </div>

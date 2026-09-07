@@ -54,24 +54,19 @@ export function useViewSwitcher(projectId: string, initialView: ViewMode) {
       router.refresh();
 
       // 4. 异步更新 mode（去抖 + 不 revalidate）
-      //    KNOWLEDGE 是瞬态视图：不写 DB（ProjectMode enum 无此值），仅保持 URL 状态
-      if (next !== "KNOWLEDGE") {
-        const last = lastModeSyncRef.get(projectId);
-        const now = Date.now();
-        const skip =
-          last && last.mode === next && now - last.ts < MODE_SYNC_DEBOUNCE_MS * 5;
-        if (!skip) {
-          lastModeSyncRef.set(projectId, { mode: next, ts: now });
-          setTimeout(() => {
-            updateProjectModeAction(projectId, next)
-              .catch(() => {})
-              .finally(() => {
-                setTimeout(() => setPending(null), 200);
-              });
-          }, MODE_SYNC_DEBOUNCE_MS);
-        } else {
-          setTimeout(() => setPending(null), 200);
-        }
+      const last = lastModeSyncRef.get(projectId);
+      const now = Date.now();
+      const skip =
+        last && last.mode === next && now - last.ts < MODE_SYNC_DEBOUNCE_MS * 5;
+      if (!skip) {
+        lastModeSyncRef.set(projectId, { mode: next, ts: now });
+        setTimeout(() => {
+          updateProjectModeAction(projectId, next)
+            .catch(() => {})
+            .finally(() => {
+              setTimeout(() => setPending(null), 200);
+            });
+        }, MODE_SYNC_DEBOUNCE_MS);
       } else {
         setTimeout(() => setPending(null), 200);
       }

@@ -96,11 +96,14 @@ export function KbOutlineSection({
   outlines,
   characters,
   chapters,
+  embedded,
 }: {
   projectId: string;
   outlines: OutlineItem[];
   characters: CharacterView[];
   chapters: Array<{ id: string; title: string; outline?: { id: string } | null }>;
+  /** 嵌入工作台右侧栏时隐藏分区大标题（页签已标明分区），按钮改紧凑 */
+  embedded?: boolean;
 }) {
   const [dialog, setDialog] = useState<OutlineDraft | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -191,22 +194,27 @@ export function KbOutlineSection({
 
   return (
     <div>
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-base font-semibold text-text-default">情节大纲</h2>
-          <p className="mt-0.5 text-xs text-text-tertiary">
-            结构化大纲，章节扩写的依据；可在流水线「大纲」步骤批量生成章节
-          </p>
-        </div>
-        <Button onClick={openNew} className="h-8 rounded-xl px-3 text-xs">
-          <Plus className="h-3.5 w-3.5" /> 新增条目
+      <div className={embedded ? "flex justify-end" : "flex items-center justify-between"}>
+        {!embedded && (
+          <div>
+            <h2 className="text-base font-semibold text-text-default">情节大纲</h2>
+            <p className="mt-0.5 text-xs text-text-tertiary">
+              结构化大纲，章节扩写的依据；可在流水线「大纲」步骤批量生成章节
+            </p>
+          </div>
+        )}
+        <Button
+          onClick={openNew}
+          className={embedded ? "h-7 rounded-lg px-2.5 text-xs" : "h-8 rounded-xl px-3 text-xs"}
+        >
+          <Plus className="h-3.5 w-3.5" /> 新增{embedded ? "" : "条目"}
         </Button>
       </div>
 
-      <div className="mt-4 space-y-5">
+      <div className={embedded ? "mt-2 space-y-5" : "mt-4 space-y-5"}>
         {outlines.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border-neutral-l2 py-14 text-center text-sm text-text-tertiary">
-            暂无大纲条目，点击右上角「新增条目」开始
+            {embedded ? "暂无大纲，点击上方「新增」开始" : "暂无大纲条目，点击右上角「新增条目」开始"}
           </div>
         )}
         {groups.map(([volume, items]) => (
