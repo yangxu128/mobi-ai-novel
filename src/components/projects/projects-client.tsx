@@ -16,7 +16,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Plus, MoreVertical, Trash2, Search, LayoutGrid, List as ListIcon } from "lucide-react";
+import { Plus, MoreVertical, Trash2, Search, LayoutGrid, List as ListIcon, Import } from "lucide-react";
 import { createProjectAction, deleteProjectAction } from "@/actions/project";
 import { toast } from "@/components/ui/toast";
 import { formatUpdatedAt, formatCount, cn } from "@/lib/utils";
@@ -39,6 +39,7 @@ import {
 import { StylePicker } from "@/components/style/style-picker";
 import { AppSidebar } from "@/components/projects/app-sidebar";
 import { modeInfo } from "@/components/projects/mode-meta";
+import { ImportWizard } from "@/components/projects/import-wizard";
 import type { StyleProfile } from "@/lib/ai/style";
 
 const GENRES = ["玄幻", "都市", "言情", "科幻", "悬疑", "历史", "武侠", "末世", "同人", "其他"];
@@ -96,6 +97,7 @@ export function ProjectsClient({
   const router = useRouter();
   const [projects, setProjects] = useState<ProjectItem[]>(initialProjects);
   const [createOpen, setCreateOpen] = useState(newOpen);
+  const [importOpen, setImportOpen] = useState(false);
   const [deleteId, setDeleteId] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -265,6 +267,15 @@ export function ProjectsClient({
                   <ListIcon className="h-3.5 w-3.5" />
                 </button>
               </div>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setImportOpen(true)}
+                className="h-9 rounded-xl px-4"
+              >
+                <Import className="h-4 w-4" />
+                导入作品
+              </Button>
               <Button onClick={() => setCreateOpen(true)} className="h-9 rounded-xl px-4">
                 <Plus className="h-4 w-4" />
                 新建项目
@@ -281,10 +292,21 @@ export function ProjectsClient({
                   : "还没有项目，点击右上角「新建项目」开始创作"}
               </p>
               {!query && (
-                <Button onClick={() => setCreateOpen(true)} className="mt-5 h-9 rounded-xl px-4">
-                  <Plus className="h-4 w-4" />
-                  创建第一个项目
-                </Button>
+                <div className="mt-5 flex items-center gap-3">
+                  <Button onClick={() => setCreateOpen(true)} className="h-9 rounded-xl px-4">
+                    <Plus className="h-4 w-4" />
+                    创建第一个项目
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    onClick={() => setImportOpen(true)}
+                    className="h-9 rounded-xl px-4"
+                  >
+                    <Import className="h-4 w-4" />
+                    导入已有作品
+                  </Button>
+                </div>
               )}
             </div>
           ) : view === "grid" ? (
@@ -476,6 +498,9 @@ export function ProjectsClient({
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* 导入作品向导 */}
+      <ImportWizard open={importOpen} onOpenChange={setImportOpen} />
 
       {/* 删除确认 */}
       <AlertDialog open={!!deleteId} onOpenChange={(o) => !o && setDeleteId(null)}>

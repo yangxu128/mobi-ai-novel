@@ -45,6 +45,7 @@
     "clsx": "^2.1.1",
     "date-fns": "^3.6.0",
     "lucide-react": "^0.460.0",
+    "mammoth": "^1.12.2",
     "nanoid": "^5.0.7",
     "next": "^15.5.0",
     "next-auth": "^5.0.0-beta.25",

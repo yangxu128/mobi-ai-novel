@@ -16,6 +16,7 @@ import { wikiExtractPrompt } from "./prompts";
 import { checkQuota } from "./quota";
 import { logAIUsage } from "./rag";
 import { htmlToText } from "@/lib/utils";
+import { parseJsonLoose } from "@/lib/json-tolerant";
 import type {
   WikiExtractResult,
   StoryStateContext,
@@ -148,102 +149,9 @@ async function getChapterNo(chapter: {
   return sorted.findIndex((c) => c.id === chapter.id) + 1;
 }
 
-/**
- * 结构标点归一：LLM 偶尔在 JSON 结构位置输出全角标点（，：；），
- * 用扫描器只替换 ASCII 双引号之外的字符，字符串值内容不受影响。
- */
-function normalizeStructuralPunctuation(text: string): string {
-  const map: Record<string, string> = {
-    "，": ",",
-    "：": ":",
-    "；": ";",
-  };
-  let out = "";
-  let inString = false;
-  let escaped = false;
-  for (const ch of text) {
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (ch === "\\") escaped = true;
-      else if (ch === '"') inString = false;
-      out += ch;
-      continue;
-    }
-    if (ch === '"') {
-      inString = true;
-      out += ch;
-      continue;
-    }
-    out += map[ch] ?? ch;
-  }
-  return out;
-}
-
-/**
- * 截断修复：生成被 max_tokens 截断时，补齐未闭合的字符串与括号，
- * 尽量保住已完整输出的部分（如 summary 和前几条 events）。
- */
-function repairTruncatedJson(text: string): string | null {
-  let inString = false;
-  let escaped = false;
-  const stack: string[] = [];
-  for (const ch of text) {
-    if (inString) {
-      if (escaped) escaped = false;
-      else if (ch === "\\") escaped = true;
-      else if (ch === '"') inString = false;
-      continue;
-    }
-    if (ch === '"') {
-      inString = true;
-      continue;
-    }
-    if (ch === "{" || ch === "[") stack.push(ch);
-    else if (ch === "}" || ch === "]") stack.pop();
-  }
-  if (stack.length === 0) return null;
-  let t = text;
-  if (inString) t += '"'; // 字符串被截断：补闭合引号
-  t = t.replace(/[,:\s]+$/, ""); // 去掉悬挂的逗号/冒号
-  const closers = stack
-    .reverse()
-    .map((c) => (c === "{" ? "}" : "]"))
-    .join("");
-  return t + closers;
-}
-
-/** 容错解析 LLM 输出的 JSON（剥代码块/截首尾大括号/全角标点归一/截断修复） */
+/** 容错解析 LLM 输出的 JSON（字段过滤基于 parseJsonLoose 的通用容错链） */
 function parseWikiJson(raw: string): WikiExtractResult | null {
-  if (!raw) return null;
-  let text = raw.trim();
-  const fence = text.match(/```(?:json)?\s*([\s\S]*?)```/);
-  if (fence) text = fence[1].trim();
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start >= 0 && end > start) text = text.slice(start, end + 1);
-  // 逐级容错：原文 → 全角归一 → 截断修复
-  let obj: Record<string, unknown> | null = null;
-  try {
-    obj = JSON.parse(text) as Record<string, unknown>;
-  } catch {
-    try {
-      obj = JSON.parse(normalizeStructuralPunctuation(text)) as Record<
-        string,
-        unknown
-      >;
-    } catch {
-      const repaired = repairTruncatedJson(
-        normalizeStructuralPunctuation(text)
-      );
-      if (repaired) {
-        try {
-          obj = JSON.parse(repaired) as Record<string, unknown>;
-        } catch {
-          obj = null;
-        }
-      }
-    }
-  }
+  const obj = parseJsonLoose(raw);
   if (!obj) return null;
   {
     const fs = (obj.foreshadows || {}) as Record<string, unknown>;

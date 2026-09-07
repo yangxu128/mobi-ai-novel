@@ -657,3 +657,29 @@ export function wikiExtractPrompt(opts: {
     },
   ];
 }
+
+// ============ 导入作品解析 ============
+
+/**
+ * 导入解析：从用户已有的设定资料 + 章节采样中，一次调用提取
+ * 标题/题材/简介/世界观/角色/章节摘要，供导入向导预览编辑。
+ * 输出契约见 src/types/import.ts 的 ImportAIResult。
+ */
+export function importParsePrompt(
+  sampleText: string,
+  chapterOrders: number[]
+): AIMessage[] {
+  const orders =
+    chapterOrders.length > 0 ? chapterOrders.join(",") : "（无，跳过章节摘要）";
+  return [
+    {
+      role: "system",
+      content:
+        "你是小说项目的资料整理员。阅读用户提供的作品资料，提取结构化创作档案。只提取资料中明确出现的信息，不要编造。只输出严格 JSON，不要 markdown 代码块、解释或额外文字。",
+    },
+    {
+      role: "user",
+      content: `${sampleText}\n\n【需摘要章节 order 清单】\n${orders}\n\n请提取创作档案并严格按如下 JSON 结构输出：\n\n{"title":"从资料推断的作品标题（推断不出则空串）","genre":"从以下枚举中选最贴切的一个：玄幻/都市/言情/科幻/悬疑/历史/武侠/末世/同人/其他","synopsis":"200字内故事简介：主线冲突+主角目标+核心看点","worldSettings":[{"title":"设定标题（12字内）","category":"BACKGROUND|GEOGRAPHY|RULE|SYSTEM|OTHER","content":"设定内容（150字内）"}],"characters":[{"name":"姓名","role":"PROTAGONIST|SUPPORTING|ANTAGONIST|EXTRA","appearance":"外貌（可空串）","personality":"性格（可空串）","background":"背景（可空串）","motivation":"动机（可空串）"}],"chapterSummaries":[{"order":0,"summary":"该章 40 字内剧情摘要"}]}\n\n规则：\n1. worldSettings 最多 8 条，按重要性排序（力量体系/核心规则/关键地理优先）；category 枚举含义：BACKGROUND=时代背景与社会结构，GEOGRAPHY=地理与地点，RULE=世界规则与力量体系，SYSTEM=组织势力与体系设定，OTHER=其他\n2. characters 最多 10 个，只收录有名字且推动剧情的人物，主角放第一个\n3. chapterSummaries 只允许 order 来自【需摘要章节 order 清单】，每条 40 字内；清单为空时输出空数组\n4. 所有可空字段空值用空串，不要输出 null\n5. 只输出 JSON`,
+    },
+  ];
+}

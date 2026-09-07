@@ -211,7 +211,8 @@ export async function logAIUsage(opts: {
     | "consistency"
     | "extract"
     | "summary"
-    | "analyzeStyle";
+    | "analyzeStyle"
+    | "importParse";
   model: string;
   promptTokens: number;
   completionTokens: number;

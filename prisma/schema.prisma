@@ -377,6 +377,7 @@ enum AIAction {
   extract
   summary
   analyzeStyle
+  importParse
 }
 
 model AIUsageLog {

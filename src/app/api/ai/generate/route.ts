@@ -29,6 +29,7 @@ import {
   extractCardsPrompt,
   summaryPrompt,
   analyzeStylePrompt,
+  importParsePrompt,
 } from "@/lib/ai/prompts";
 import type { AIMessage } from "@/lib/ai/provider";
 import type { StyleProfile } from "@/lib/ai/style";
@@ -222,6 +223,17 @@ const actionHandlers: Record<string, ActionHandler> = {
     if (!sampleText || sampleText.length < 100) throw new Error("样本文本过短，至少需要 100 字");
     if (sampleText.length > 10000) throw new Error("样本文本过长，最多 10000 字");
     return analyzeStylePrompt(sampleText);
+  },
+
+  async importParse({ payload }) {
+    // 导入向导的智能解析：sampleText 由前端采样构造（设定 + 章节采样）
+    const sampleText = String(payload.sampleText || "");
+    if (!sampleText) throw new Error("缺少 sampleText");
+    if (sampleText.length > 16000) throw new Error("采样文本过长，最多 16000 字");
+    const chapterOrders = Array.isArray(payload.chapterOrders)
+      ? (payload.chapterOrders as unknown[]).map(Number).filter(Number.isFinite)
+      : [];
+    return importParsePrompt(sampleText, chapterOrders);
   },
 };
 

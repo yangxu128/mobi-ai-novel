@@ -18,6 +18,7 @@ const ACTION_LABELS: Record<string, string> = {
   extract: "卡片提取",
   summary: "章节摘要",
   analyzeStyle: "风格分析",
+  importParse: "导入解析",
 };
 
 /**
