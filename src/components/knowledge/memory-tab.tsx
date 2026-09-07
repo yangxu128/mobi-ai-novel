@@ -85,13 +85,18 @@ export function MemoryTab({ memory, projectId, activeChapterId, deletable }: Pro
     router.refresh();
   }, [router]);
 
-  // 自动记忆开启但暂无数据：提取可能仍在进行，8s 后补刷一次
-  // （覆盖"保存后立刻点开记忆页签、LLM 尚未提取完"的场景；数据到位后自动停止）
+  // 空态轮询补刷：自动提取走 after() 异步落库（LLM 耗时几十秒），
+  // 其 revalidatePath 不会推送已打开的页面，需主动 refresh 才能看到。
+  // 空态期间每 10s 刷新一次、最多 2 分钟；数据到位（hasAny）自动停止。
   useEffect(() => {
-    if (hasAny || !autoMemory) return;
-    const t = setTimeout(() => router.refresh(), 8000);
-    return () => clearTimeout(t);
-  }, [hasAny, autoMemory, router]);
+    if (hasAny) return;
+    let count = 0;
+    const t = setInterval(() => {
+      if (++count > 12) return;
+      router.refresh();
+    }, 10_000);
+    return () => clearInterval(t);
+  }, [hasAny, router]);
 
   async function onToggleAuto(enabled: boolean) {
     setAutoMemory(enabled);
@@ -111,6 +116,10 @@ export function MemoryTab({ memory, projectId, activeChapterId, deletable }: Pro
         toast({ title: "本章记忆已更新", type: "success" });
         // 记忆提取消耗积分：通知余额展示组件刷新
         window.dispatchEvent(new Event(QUOTA_CHANGED_EVENT));
+        // 服务端已落库：立即拉取最新数据展示
+        // （重置节流时间戳，覆盖挂载刷新 15s 节流挡住本次刷新的场景）
+        lastMemoryTabRefreshAt = 0;
+        startTransition(() => router.refresh());
       } else {
         toast({ title: "更新失败", description: res.error, type: "error" });
       }
@@ -144,6 +153,9 @@ export function MemoryTab({ memory, projectId, activeChapterId, deletable }: Pro
       }
     } finally {
       setRebuilding(false);
+      // 已处理的章节产物均已落库（含中断场景）：拉取最新数据展示
+      lastMemoryTabRefreshAt = 0;
+      startTransition(() => router.refresh());
     }
   }
 
