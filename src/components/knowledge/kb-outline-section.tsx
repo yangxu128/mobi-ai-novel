@@ -97,6 +97,7 @@ export function KbOutlineSection({
   characters,
   chapters,
   embedded,
+  emptyText,
 }: {
   projectId: string;
   outlines: OutlineItem[];
@@ -104,6 +105,8 @@ export function KbOutlineSection({
   chapters: Array<{ id: string; title: string; outline?: { id: string } | null }>;
   /** 嵌入工作台右侧栏时隐藏分区大标题（页签已标明分区），按钮改紧凑 */
   embedded?: boolean;
+  /** 自定义空态文案（如工作台"当前章节未关联大纲"） */
+  emptyText?: string;
 }) {
   const [dialog, setDialog] = useState<OutlineDraft | null>(null);
   const [isNew, setIsNew] = useState(false);
@@ -214,7 +217,10 @@ export function KbOutlineSection({
       <div className={embedded ? "mt-2 space-y-5" : "mt-4 space-y-5"}>
         {outlines.length === 0 && (
           <div className="rounded-2xl border border-dashed border-border-neutral-l2 py-14 text-center text-sm text-text-tertiary">
-            {embedded ? "暂无大纲，点击上方「新增」开始" : "暂无大纲条目，点击右上角「新增条目」开始"}
+            {emptyText ??
+              (embedded
+                ? "暂无大纲，点击上方「新增」开始"
+                : "暂无大纲条目，点击右上角「新增条目」开始")}
           </div>
         )}
         {groups.map(([volume, items]) => (

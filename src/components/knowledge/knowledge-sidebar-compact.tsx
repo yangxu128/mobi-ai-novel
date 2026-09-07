@@ -2,9 +2,9 @@
 
 /**
  * 工作台/对话页右侧知识库面板：搜索过滤 + 四页签直接管理。
- * 人物设定 / 世界观 / 情节大纲页签嵌入 Kb 分区组件（新增/编辑/删除），
+ * 人物设定 / 世界观嵌入 Kb 分区组件（新增/编辑/删除），
+ * 情节大纲跟随当前章节（工作台点到哪章显示哪章，对话页显示全量），
  * 记忆页签复用 MemoryTab（LLM wiki，含自动记忆开关/伏笔状态/重建）。
- * 搜索框过滤传入各分区的数据，实现「浏览即管理」。
  */
 
 import { memo, useState } from "react";
@@ -76,10 +76,26 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
       )
     : outlines;
 
+  // 大纲页签跟随当前章节：工作台点到哪章就显示哪章关联的大纲（忽略搜索，
+  // 单条内容搜索无意义）；对话页无活跃章节，显示搜索过滤后的全量大纲
+  const activeChapter =
+    chapters.find((c) => c.id === activeChapterId) ?? null;
+  const activeOutlineId = activeChapter?.outline?.id ?? null;
+  const visibleOutlines = activeChapter
+    ? activeOutlineId
+      ? outlines.filter((o) => o.id === activeOutlineId)
+      : []
+    : filteredOutlines;
+  const outlineEmptyText = activeChapter
+    ? activeOutlineId
+      ? undefined
+      : "当前章节未关联大纲，可在流水线「大纲」步骤生成章节时自动关联，或点击「新增」后手动建立"
+    : undefined;
+
   const countByTab: Record<KbTab, number> = {
     chars: filteredChars.length,
     world: filteredWorld.length,
-    outline: filteredOutlines.length,
+    outline: visibleOutlines.length,
     memory:
       (memory?.characterStates.length || 0) +
       (memory?.foreshadows.length || 0) +
@@ -156,13 +172,21 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
         )}
 
         {tab === "outline" && (
-          <KbOutlineSection
-            projectId={projectId}
-            outlines={filteredOutlines}
-            characters={characters}
-            chapters={chapters}
-            embedded
-          />
+          <>
+            {activeChapter && (
+              <p className="mb-2 truncate text-[11px] text-text-tertiary">
+                跟随当前章节「{activeChapter.title}」
+              </p>
+            )}
+            <KbOutlineSection
+              projectId={projectId}
+              outlines={visibleOutlines}
+              characters={characters}
+              chapters={chapters}
+              embedded
+              emptyText={outlineEmptyText}
+            />
+          </>
         )}
 
         {tab === "memory" && (
