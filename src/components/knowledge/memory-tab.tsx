@@ -18,6 +18,8 @@ import {
   Target,
   Heart,
   AlertCircle,
+  Pencil,
+  Trash2,
 } from "lucide-react";
 import type { StoryMemoryView, ForeshadowView } from "@/types/memory";
 import type { CharacterStateCurrent } from "@/types/memory";
@@ -27,9 +29,21 @@ import {
   rebuildProjectMemoryAction,
   setForeshadowStatusAction,
   toggleAutoMemoryAction,
+  saveForeshadowAction,
+  deleteForeshadowAction,
+  deleteStoryEventAction,
 } from "@/actions/wiki";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -38,19 +52,23 @@ interface Props {
   projectId: string;
   /** 当前编辑章节 id（工作台模式下传入，用于"更新本章记忆"） */
   activeChapterId?: string | null;
+  /** 知识库管理界面传入：伏笔/事件显示编辑与删除按钮 */
+  deletable?: boolean;
 }
 
 /** 挂载刷新节流间隔（模块级，工作台/对话两个侧栏实例共享） */
 const MEMORY_TAB_REFRESH_INTERVAL_MS = 15_000;
 let lastMemoryTabRefreshAt = 0;
 
-export function MemoryTab({ memory, projectId, activeChapterId }: Props) {
+export function MemoryTab({ memory, projectId, activeChapterId, deletable }: Props) {
   const router = useRouter();
   const [autoMemory, setAutoMemory] = useState(memory.autoMemory);
   const [updating, setUpdating] = useState(false);
   const [rebuilding, setRebuilding] = useState(false);
   const [progress, setProgress] = useState({ processed: 0, total: 0 });
   const [, startTransition] = useTransition();
+  const [editForeshadow, setEditForeshadow] = useState<{ id: string; title: string; content: string } | null>(null);
+  const [savingForeshadow, setSavingForeshadow] = useState(false);
 
   const hasAny =
     memory.characterStates.length > 0 ||
@@ -131,6 +149,36 @@ export function MemoryTab({ memory, projectId, activeChapterId }: Props) {
         toast({ title: "状态更新失败", description: res.error, type: "error" });
       }
     });
+  }
+
+  async function onDeleteForeshadow(f: ForeshadowView) {
+    const res = await deleteForeshadowAction(f.id);
+    if (!res.ok) {
+      toast({ title: "删除失败", description: res.error, type: "error" });
+    }
+  }
+
+  async function onSaveForeshadow() {
+    if (!editForeshadow) return;
+    setSavingForeshadow(true);
+    const res = await saveForeshadowAction(editForeshadow.id, {
+      title: editForeshadow.title.trim(),
+      content: editForeshadow.content,
+    });
+    setSavingForeshadow(false);
+    if (!res.ok) {
+      toast({ title: "保存失败", description: res.error, type: "error" });
+      return;
+    }
+    setEditForeshadow(null);
+    toast({ title: "已保存", type: "success" });
+  }
+
+  async function onDeleteEvent(eventId: string) {
+    const res = await deleteStoryEventAction(eventId);
+    if (!res.ok) {
+      toast({ title: "删除失败", description: res.error, type: "error" });
+    }
   }
 
   return (
@@ -276,6 +324,26 @@ export function MemoryTab({ memory, projectId, activeChapterId }: Props) {
                     第{f.plantedChapterNo}章埋
                   </span>
                 )}
+                {deletable && (
+                  <span className="ml-auto flex shrink-0 gap-0.5">
+                    <button
+                      type="button"
+                      aria-label="编辑伏笔"
+                      className="rounded p-0.5 text-text-tertiary transition-colors hover:bg-bg-overlay-l1 hover:text-text-default"
+                      onClick={() => setEditForeshadow({ id: f.id, title: f.title, content: f.content })}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      aria-label="删除伏笔"
+                      className="rounded p-0.5 text-text-tertiary transition-colors hover:bg-bg-overlay-l1 hover:text-red-600"
+                      onClick={() => onDeleteForeshadow(f)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </span>
+                )}
               </div>
               {f.content && (
                 <p className="mt-1 line-clamp-2 text-[11px] leading-relaxed text-text-tertiary">
@@ -331,15 +399,63 @@ export function MemoryTab({ memory, projectId, activeChapterId }: Props) {
                         ? `第${e.chapterNo}章`
                         : "未排序"}
                   </span>
-                  <p className="text-[11px] leading-relaxed text-text-secondary">
+                  <p className="min-w-0 flex-1 text-[11px] leading-relaxed text-text-secondary">
                     {e.key && <span className="mr-1 font-semibold text-text-brand">[主线]</span>}
                     {e.content}
                   </p>
+                  {deletable && (
+                    <button
+                      type="button"
+                      aria-label="删除事件"
+                      className="shrink-0 rounded p-0.5 text-text-tertiary transition-colors hover:bg-bg-overlay-l1 hover:text-red-600"
+                      onClick={() => onDeleteEvent(e.id)}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
                 </div>
               ))}
           </div>
         </Section>
       )}
+
+      {/* 伏笔编辑弹窗（deletable 模式） */}
+      <Dialog open={!!editForeshadow} onOpenChange={(o) => !o && setEditForeshadow(null)}>
+        <DialogContent className="max-w-md rounded-2xl">
+          <DialogHeader className="p-0 pr-8">
+            <DialogTitle>编辑伏笔</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>标题</Label>
+              <Input
+                value={editForeshadow?.title ?? ""}
+                onChange={(e) =>
+                  setEditForeshadow((f) => (f ? { ...f, title: e.target.value } : f))
+                }
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>内容</Label>
+              <Textarea
+                value={editForeshadow?.content ?? ""}
+                onChange={(e) =>
+                  setEditForeshadow((f) => (f ? { ...f, content: e.target.value } : f))
+                }
+                rows={4}
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" className="rounded-xl" onClick={() => setEditForeshadow(null)}>
+              取消
+            </Button>
+            <Button className="rounded-xl" onClick={onSaveForeshadow} disabled={savingForeshadow}>
+              {savingForeshadow && <RefreshCw className="h-3.5 w-3.5 animate-spin" />}保存
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

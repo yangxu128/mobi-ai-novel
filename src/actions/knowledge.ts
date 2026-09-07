@@ -241,3 +241,86 @@ export async function createChaptersFromOutlinesAction(projectId: string): Promi
   revalidatePath(`/project/${projectId}`);
   return { ok: true };
 }
+
+// ============ 大纲单条管理（知识库管理界面） ============
+
+/**
+ * 单条大纲 upsert：有 id 走 update，无 id 创建（order 追加到末尾）。
+ * 与 saveOutlineAction（全删重建，流水线第 4 步专用）并存；
+ * 注意：流水线重新保存大纲会覆盖管理界面的单条改动。
+ */
+export async function saveOutlineItemAction(opts: {
+  projectId: string;
+  id?: string;
+  volume: number;
+  chapter: number;
+  sceneTitle: string;
+  sceneSummary: string;
+  povCharacterId?: string | null;
+  plotPoints: string[];
+  foreshadowing?: string | null;
+}): Promise<ActionResult> {
+  const check = await ensureProjectOwner(opts.projectId);
+  if (!check.ok) return check;
+
+  if (opts.id) {
+    await prisma.outline.update({
+      where: { id: opts.id },
+      data: {
+        volume: opts.volume,
+        chapter: opts.chapter,
+        sceneTitle: opts.sceneTitle,
+        sceneSummary: opts.sceneSummary,
+        povCharacterId: opts.povCharacterId || null,
+        plotPoints: opts.plotPoints,
+        foreshadowing: opts.foreshadowing || null,
+      },
+    });
+    revalidatePath(`/project/${opts.projectId}`);
+    return { ok: true, id: opts.id };
+  }
+
+  // 新增：order 追加到尾部（Outline.order 为 Float）
+  const last = await prisma.outline.findFirst({
+    where: { projectId: opts.projectId },
+    orderBy: { order: "desc" },
+    select: { order: true },
+  });
+  const o = await prisma.outline.create({
+    data: {
+      projectId: opts.projectId,
+      volume: opts.volume,
+      chapter: opts.chapter,
+      sceneTitle: opts.sceneTitle,
+      sceneSummary: opts.sceneSummary,
+      povCharacterId: opts.povCharacterId || null,
+      plotPoints: opts.plotPoints,
+      foreshadowing: opts.foreshadowing || null,
+      order: (last?.order ?? 0) + 1,
+    },
+  });
+  revalidatePath(`/project/${opts.projectId}`);
+  return { ok: true, id: o.id };
+}
+
+/**
+ * 单条删除大纲（硬删：Outline 模型无 deletedAt，与 saveOutlineAction 的
+ * deleteMany 策略一致）。关联章节的 outlineId 由 onDelete: SetNull 自动解除，
+ * 章节内容保留。
+ */
+export async function deleteOutlineItemAction(id: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "未登录" };
+
+  const outline = await prisma.outline.findUnique({
+    where: { id },
+    include: { project: { select: { userId: true, id: true } } },
+  });
+  if (!outline || outline.project.userId !== user.id) {
+    return { ok: false, error: "无权限" };
+  }
+
+  await prisma.outline.delete({ where: { id } });
+  revalidatePath(`/project/${outline.project.id}`);
+  return { ok: true };
+}

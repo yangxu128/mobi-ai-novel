@@ -7,12 +7,12 @@
  */
 
 import { memo, useState } from "react";
-import Link from "next/link";
 import { Feather, Search, LibraryBig } from "lucide-react";
 import type { WorldSettingView, CharacterView } from "@/types/knowledge";
 import type { StoryMemoryView } from "@/types/memory";
 import { getCategoryLabel, roleLabel } from "@/lib/knowledge/labels";
 import { MemoryTab } from "@/components/knowledge/memory-tab";
+import { PROJECT_VIEW_CHANGE_EVENT } from "@/components/hooks/use-view-switcher";
 import { cn } from "@/lib/utils";
 
 type KbTab = "chars" | "world" | "outline" | "memory";
@@ -279,15 +279,20 @@ export const KnowledgeSidebarCompact = memo(function KnowledgeSidebarCompact({
         )}
       </div>
 
-      {/* 管理知识库入口：跳转流水线（世界观/角色卡步骤） */}
+      {/* 管理知识库入口：事件分发切换到 KNOWLEDGE 瞬态视图（无整页跳转） */}
       <div className="border-t border-border-neutral-l1 p-3">
-        <Link
-          href={`/project/${projectId}?view=pipeline`}
+        <button
+          type="button"
           className="flex h-9 w-full items-center justify-center gap-1.5 rounded-xl border border-border-neutral-l2 text-xs font-medium text-text-default transition-colors hover:bg-bg-overlay-l1"
+          onClick={() =>
+            window.dispatchEvent(
+              new CustomEvent(PROJECT_VIEW_CHANGE_EVENT, { detail: { view: "KNOWLEDGE" } })
+            )
+          }
         >
           <LibraryBig className="h-3.5 w-3.5 text-text-tertiary" />
           管理知识库
-        </Link>
+        </button>
       </div>
     </div>
   );

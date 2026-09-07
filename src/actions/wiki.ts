@@ -177,3 +177,74 @@ export async function toggleAutoMemoryAction(
   revalidatePath(`/project/${projectId}`);
   return { ok: true };
 }
+
+// ============ 记忆条目管理（知识库管理界面） ============
+
+/** 编辑伏笔标题/内容（LLM 提取内容的人工修正） */
+export async function saveForeshadowAction(
+  foreshadowId: string,
+  data: { title: string; content: string }
+) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "未登录" };
+
+  const foreshadow = await prisma.foreshadow.findUnique({
+    where: { id: foreshadowId },
+    include: { project: { select: { userId: true, id: true } } },
+  });
+  if (!foreshadow || foreshadow.project.userId !== user.id) {
+    return { ok: false, error: "伏笔不存在或无权限" };
+  }
+
+  await prisma.foreshadow.update({
+    where: { id: foreshadowId },
+    data: { title: data.title, content: data.content },
+  });
+
+  revalidatePath(`/project/${foreshadow.project.id}`);
+  return { ok: true };
+}
+
+/** 删除伏笔（软删：deletedAt 置位，与 page 查询的 deletedAt 过滤配套） */
+export async function deleteForeshadowAction(foreshadowId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "未登录" };
+
+  const foreshadow = await prisma.foreshadow.findUnique({
+    where: { id: foreshadowId },
+    include: { project: { select: { userId: true, id: true } } },
+  });
+  if (!foreshadow || foreshadow.project.userId !== user.id) {
+    return { ok: false, error: "伏笔不存在或无权限" };
+  }
+
+  await prisma.foreshadow.update({
+    where: { id: foreshadowId },
+    data: { deletedAt: new Date() },
+  });
+
+  revalidatePath(`/project/${foreshadow.project.id}`);
+  return { ok: true };
+}
+
+/** 删除故事事件（软删） */
+export async function deleteStoryEventAction(eventId: string) {
+  const user = await getCurrentUser();
+  if (!user) return { ok: false, error: "未登录" };
+
+  const event = await prisma.storyEvent.findUnique({
+    where: { id: eventId },
+    include: { project: { select: { userId: true, id: true } } },
+  });
+  if (!event || event.project.userId !== user.id) {
+    return { ok: false, error: "事件不存在或无权限" };
+  }
+
+  await prisma.storyEvent.update({
+    where: { id: eventId },
+    data: { deletedAt: new Date() },
+  });
+
+  revalidatePath(`/project/${event.project.id}`);
+  return { ok: true };
+}
