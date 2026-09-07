@@ -38,7 +38,7 @@ import {
 import { useAIStream } from "@/hooks/use-ai-stream";
 import { saveChapterContentAction } from "@/actions/chapter";
 import { toast } from "@/components/ui/toast";
-import { formatCount, readingMinutes, cn } from "@/lib/utils";
+import { formatCount, readingMinutes, cn, textToHtml } from "@/lib/utils";
 
 const AI_ACTIONS = ["续写", "扩写", "润色", "改写", "压缩", "古文风格"] as const;
 
@@ -90,6 +90,8 @@ export function TipTapEditor({
   const [aiResult, setAiResult] = useState<string | null>(null);
   const [selectedText, setSelectedText] = useState("");
   const [contextText, setContextText] = useState("");
+  /** 打开 AI 面板时的选区位置：接受结果时按此位置替换（不依赖点击时刻的 selection，避免焦点转移后选区丢失导致插入错位） */
+  const [aiRange, setAiRange] = useState<{ from: number; to: number } | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const editor = useEditor({
@@ -189,6 +191,7 @@ export function TipTapEditor({
         if (!empty) {
           const text = editor.state.doc.textBetween(from, to, "\n");
           setSelectedText(text);
+          setAiRange({ from, to });
           const docText = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n");
           const start = Math.max(0, from - 1000);
           const end = Math.min(docText.length, to + 1000);
@@ -214,6 +217,7 @@ export function TipTapEditor({
     }
     const text = editor.state.doc.textBetween(from, to, "\n");
     setSelectedText(text);
+    setAiRange({ from, to });
     const docText = editor.state.doc.textBetween(0, editor.state.doc.content.size, "\n");
     const start = Math.max(0, from - 1000);
     const end = Math.min(docText.length, to + 1000);
@@ -238,10 +242,41 @@ export function TipTapEditor({
 
   function acceptAIResult() {
     if (!editor || !aiResult) return;
-    const { from, to } = editor.state.selection;
-    editor.chain().focus().deleteRange({ from, to }).insertContent(aiResult).run();
+    // 替换目标：优先用打开面板时记录的选区（Popover 按钮点击会使编辑器失焦、
+    // 当前 selection 丢失，不能依赖点击时刻的 selection，否则会插入到文末）
+    let range = aiRange;
+    if (range) {
+      const current = editor.state.doc.textBetween(range.from, range.to, "\n");
+      if (current !== selectedText) range = null; // 等待期间文档被编辑，位置失配
+    }
+    if (!range && selectedText) {
+      // 兜底：在文档中重新搜索选中文字（仅限单段内文本，跨段落选区搜不到走剪贴板）
+      let found: { from: number; to: number } | null = null;
+      editor.state.doc.descendants((node, pos) => {
+        if (found || !node.isText || !node.text) return false;
+        const idx = node.text.indexOf(selectedText);
+        if (idx >= 0) {
+          found = { from: pos + idx, to: pos + idx + selectedText.length };
+          return false;
+        }
+        return true;
+      });
+      range = found;
+    }
+    if (!range) {
+      // 位置彻底丢失：结果进剪贴板，由用户手动粘贴
+      navigator.clipboard?.writeText(aiResult).catch(() => {});
+      toast({ title: "原文位置已变化，AI 结果已复制到剪贴板，请在目标位置粘贴", type: "warning" });
+      setAiOpen(false);
+      setAiResult(null);
+      setAiRange(null);
+      return;
+    }
+    // textToHtml：AI 输出为纯文本，直接 insertContent 会把 \n\n 折叠成空格（所有段落挤成一段）
+    editor.chain().focus().insertContentAt(range, textToHtml(aiResult)).run();
     setAiOpen(false);
     setAiResult(null);
+    setAiRange(null);
   }
 
   function rejectAIResult() {
@@ -319,7 +354,12 @@ export function TipTapEditor({
           {/* 隐藏的 trigger，AI 弹窗由状态控制 */}
           <span className="hidden" />
         </PopoverTrigger>
-        <PopoverContent className="w-96" align="end" side="top">
+        <PopoverContent
+          className="w-96"
+          align="end"
+          side="top"
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <AIPanel
             selectedText={selectedText}
             aiAction={aiAction}

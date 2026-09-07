@@ -487,7 +487,7 @@ export function inlineAIPrompt(
     },
     {
       role: "user",
-      content: `${context ? `上下文：\n${context}\n\n` : ""}选中文字：\n${selectedText}\n\n${actionMap[action]}。直接输出结果，不要解释。`,
+      content: `【选中文字】（唯一处理对象）\n${selectedText}\n\n${context ? `【上下文】（仅供理解前后情节，禁止扩写、改写或复述其中的内容）\n${context}\n\n` : ""}任务：${actionMap[action]}。注意：输出必须且只能是【选中文字】对应的处理结果，不得包含【上下文】中未选中的其他段落。直接输出结果，不要解释。`,
     },
   ];
 }
