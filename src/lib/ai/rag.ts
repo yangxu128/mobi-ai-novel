@@ -210,6 +210,7 @@ export async function logAIUsage(opts: {
     | "chat"
     | "consistency"
     | "extract"
+    | "wikiExtract"
     | "summary"
     | "analyzeStyle"
     | "importParse";

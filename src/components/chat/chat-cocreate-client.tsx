@@ -8,7 +8,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Send, Loader2, Sparkles, Wand2, ArrowRight, Check, AlertCircle, GitBranch } from "lucide-react";
-import { useAIStream } from "@/hooks/use-ai-stream";
+import { useAIStream, QUOTA_CHANGED_EVENT } from "@/hooks/use-ai-stream";
 import {
   getChatSessionAction,
   appendChatMessageAction,
@@ -219,6 +219,8 @@ export function ChatCoCreateClientImpl({ projectId }: { projectId: string }) {
     if (res.ok && res.cards) {
       setSession({ ...session, extractedCards: res.cards });
       toast({ title: "已提取知识卡", type: "success" });
+      // 知识卡提取消耗积分：通知余额展示组件刷新
+      window.dispatchEvent(new Event(QUOTA_CHANGED_EVENT));
     } else {
       toast({ title: "提取失败", description: res.error, type: "error" });
     }

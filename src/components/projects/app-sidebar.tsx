@@ -40,6 +40,7 @@ import {
 } from "@/components/ui/dialog";
 import { ContactQr } from "@/components/about/contact-qr";
 import { UsageDialog } from "@/components/projects/usage-dialog";
+import { QUOTA_CHANGED_EVENT } from "@/hooks/use-ai-stream";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
@@ -115,7 +116,25 @@ export function AppSidebar() {
       localStorage.setItem(key, "1");
       setCheckinOpen(true);
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // AI 生成扣分后刷新余额（节流 3s，防连续生成时频繁请求）
+    let lastQuotaRefreshAt = 0;
+    const onQuotaChanged = () => {
+      const now = Date.now();
+      if (now - lastQuotaRefreshAt < 3000) return;
+      lastQuotaRefreshAt = now;
+      loadQuota();
+    };
+    window.addEventListener(QUOTA_CHANGED_EVENT, onQuotaChanged);
+    // 页面重新可见时刷新：保存章节后的自动记忆提取是 after() 异步扣分，
+    // 完成时页面可能已切走；回到本页时补拉一次余额（与事件共用节流）
+    const onVisible = () => {
+      if (document.visibilityState === "visible") onQuotaChanged();
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.removeEventListener(QUOTA_CHANGED_EVENT, onQuotaChanged);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, []);
 
   function toggle() {

@@ -15,6 +15,7 @@ import { chat as aiChat, estimateTokens, DEFAULT_MODEL } from "./provider";
 import { wikiExtractPrompt } from "./prompts";
 import { checkQuota } from "./quota";
 import { logAIUsage } from "./rag";
+import { deductCredits, TOKENS_PER_CREDIT } from "./credits";
 import { htmlToText } from "@/lib/utils";
 import { parseJsonLoose } from "@/lib/json-tolerant";
 import type {
@@ -345,15 +346,26 @@ export async function extractChapterWiki(
       return { ok: false, error: "提取结果解析失败" };
     }
 
-    // 记账（失败不阻塞）
+    // 记账 + 扣积分（失败不阻塞；此前只记账不扣分，记忆提取消耗漏统计）
+    const wikiPromptTokens = messages.reduce((s, m) => s + estimateTokens(m.content), 0);
+    const wikiCompletionTokens = estimateTokens(raw);
     await logAIUsage({
       userId: chapter.project.userId,
       projectId: chapter.projectId,
-      action: "extract",
+      action: "wikiExtract",
       model,
-      promptTokens: messages.reduce((s, m) => s + estimateTokens(m.content), 0),
-      completionTokens: estimateTokens(raw),
+      promptTokens: wikiPromptTokens,
+      completionTokens: wikiCompletionTokens,
     });
+    try {
+      await deductCredits(
+        chapter.project.userId,
+        usage.role,
+        Math.ceil((wikiPromptTokens + wikiCompletionTokens) / TOKENS_PER_CREDIT)
+      );
+    } catch {
+      // 积分扣减失败不阻塞提取结果落库
+    }
 
     await prisma.$transaction(async (tx) => {
       // 1. 摘要（修复"定稿后改稿摘要不更新"缺陷：每次重提都覆盖）
@@ -545,17 +557,29 @@ export async function extractChatWiki(
     return { ok: false, error: "提取结果解析失败" };
   }
 
+  // 记账 + 扣积分（失败不阻塞；此前只记账不扣分）
+  const chatPromptTokens = promptMessages.reduce(
+    (s, m) => s + estimateTokens(m.content),
+    0
+  );
+  const chatCompletionTokens = estimateTokens(raw);
   await logAIUsage({
     userId: session.project.userId,
     projectId,
-    action: "extract",
+    action: "wikiExtract",
     model,
-    promptTokens: promptMessages.reduce(
-      (s, m) => s + estimateTokens(m.content),
-      0
-    ),
-    completionTokens: estimateTokens(raw),
+    promptTokens: chatPromptTokens,
+    completionTokens: chatCompletionTokens,
   });
+  try {
+    await deductCredits(
+      session.project.userId,
+      usage.role,
+      Math.ceil((chatPromptTokens + chatCompletionTokens) / TOKENS_PER_CREDIT)
+    );
+  } catch {
+    // 积分扣减失败不阻塞提取结果落库
+  }
 
   await prisma.$transaction(async (tx) => {
     // 幂等：chat 来源全删重建

@@ -4,9 +4,12 @@ import { revalidatePath } from "next/cache";
 import { after } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/session";
-import { chat as aiChat } from "@/lib/ai/provider";
+import { chat as aiChat, estimateTokens, DEFAULT_MODEL } from "@/lib/ai/provider";
 import { extractCardsPrompt } from "@/lib/ai/prompts";
 import { extractChatWiki } from "@/lib/ai/wiki";
+import { checkQuota } from "@/lib/ai/quota";
+import { logAIUsage } from "@/lib/ai/rag";
+import { deductCredits, TOKENS_PER_CREDIT } from "@/lib/ai/credits";
 
 /**
  * 对话共创相关 Server Actions。
@@ -124,14 +127,46 @@ export async function extractCardsFromChatAction(sessionId: string) {
     .map((m) => `${m.role === "user" ? "用户" : "AI"}：${m.content}`)
     .join("\n\n");
 
-  if (!dialogue) return { ok: false, error: "对话为空" };
+  if (dialogue.trim().length === 0) {
+    return { ok: false, error: "对话为空" };
+  }
+
+  // 配额预检（此前该入口完全绕过积分体系，免费白嫖）
+  const quota = await checkQuota(user.id);
+  if (!quota.ok) {
+    return {
+      ok: false,
+      error: `积分余额不足（剩余 ${quota.available} 积分），可每日签到领取积分，或升级套餐`,
+    };
+  }
 
   try {
+    const messages = extractCardsPrompt(dialogue);
     const resp = await aiChat({
-      messages: extractCardsPrompt(dialogue),
+      messages,
       temperature: 0.2,
       maxTokens: 2000,
     });
+    // 记账 + 扣积分（1 积分 = 4000 tokens，向上取整）
+    const promptTokens = messages.reduce((s, m) => s + estimateTokens(m.content), 0);
+    const completionTokens = estimateTokens(resp);
+    await logAIUsage({
+      userId: user.id,
+      projectId: session.project.id,
+      action: "extract",
+      model: DEFAULT_MODEL,
+      promptTokens,
+      completionTokens,
+    });
+    try {
+      await deductCredits(
+        user.id,
+        quota.role,
+        Math.ceil((promptTokens + completionTokens) / TOKENS_PER_CREDIT)
+      );
+    } catch {
+      // 积分扣减失败不阻塞提取结果
+    }
     const cleaned = resp.replace(/```json|```/g, "").trim();
     const cards = JSON.parse(cleaned);
     await prisma.chatSession.update({

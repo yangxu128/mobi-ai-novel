@@ -19,8 +19,14 @@ interface UseAIStreamOptions {
   onAbort?: (partialText: string) => void;
 }
 
-/** 1 次初始请求 + 2 次断点续传 */
+/** 一次初始请求 + 2 次断点续传 */
 const MAX_ROUNDS = 3;
+
+/**
+ * 积分余额变化事件：生成完成（服务端已扣积分）后派发，
+ * 侧栏「我的积分」、用量弹窗等监听后重新拉取余额。
+ */
+export const QUOTA_CHANGED_EVENT = "mb-quota-changed";
 
 export function useAIStream(opts: UseAIStreamOptions = {}) {
   const [text, setText] = useState("");
@@ -157,6 +163,8 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
                   } else if (event === "done") {
                     receivedDone = true;
                     opts.onDone?.(fullTextRef.current);
+                    // 服务端在 done 后扣积分：通知余额展示组件刷新
+                    window.dispatchEvent(new Event(QUOTA_CHANGED_EVENT));
                   }
                 } catch {
                   // ignore

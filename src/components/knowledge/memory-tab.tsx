@@ -33,6 +33,7 @@ import {
   deleteForeshadowAction,
   deleteStoryEventAction,
 } from "@/actions/wiki";
+import { QUOTA_CHANGED_EVENT } from "@/hooks/use-ai-stream";
 import { Switch } from "@/components/ui/switch";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -108,6 +109,8 @@ export function MemoryTab({ memory, projectId, activeChapterId, deletable }: Pro
       const res = await updateChapterWikiAction(activeChapterId);
       if (res.ok) {
         toast({ title: "本章记忆已更新", type: "success" });
+        // 记忆提取消耗积分：通知余额展示组件刷新
+        window.dispatchEvent(new Event(QUOTA_CHANGED_EVENT));
       } else {
         toast({ title: "更新失败", description: res.error, type: "error" });
       }
@@ -133,6 +136,8 @@ export function MemoryTab({ memory, projectId, activeChapterId, deletable }: Pro
         }
         if (res.done) {
           toast({ title: "记忆重建完成", type: "success" });
+          // 重建按章消耗积分：通知余额展示组件刷新
+          window.dispatchEvent(new Event(QUOTA_CHANGED_EVENT));
           break;
         }
         cursor = res.processed;
