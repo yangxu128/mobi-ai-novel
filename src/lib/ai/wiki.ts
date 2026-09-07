@@ -367,117 +367,127 @@ export async function extractChapterWiki(
       // 积分扣减失败不阻塞提取结果落库
     }
 
-    await prisma.$transaction(async (tx) => {
-      // 1. 摘要（修复"定稿后改稿摘要不更新"缺陷：每次重提都覆盖）
-      if (parsed.summary) {
-        await tx.chapter.update({
-          where: { id: chapterId },
-          data: { summary: parsed.summary },
-        });
-      }
-
-      // 2. 事件：硬删重建（幂等）
-      await tx.storyEvent.deleteMany({ where: { chapterId } });
-      if (parsed.events.length > 0) {
-        await tx.storyEvent.createMany({
-          data: parsed.events.map((e, i) => ({
-            projectId: chapter.projectId,
-            chapterId,
-            chapterNo,
-            source: "chapter",
-            content: e.content,
-            characters: e.characters,
-            key: e.key,
-            order: i,
-          })),
-        });
-      }
-
-      // 3. 伏笔生命周期
-      // 3a. resolved：基于提取前的 open 快照模糊匹配
-      for (const title of parsed.foreshadows.resolved) {
-        const hit = matchForeshadowTitle(title, openForeshadows);
-        if (hit) {
-          await tx.foreshadow.update({
-            where: { id: hit.id },
-            data: {
-              status: "resolved",
-              resolvedChapterId: chapterId,
-              resolvedChapterNo: chapterNo,
-            },
+    await prisma.$transaction(
+      async (tx) => {
+        // 1. 摘要（修复"定稿后改稿摘要不更新"缺陷：每次重提都覆盖）
+        if (parsed.summary) {
+          await tx.chapter.update({
+            where: { id: chapterId },
+            data: { summary: parsed.summary },
           });
         }
-      }
-      // 3b. 幂等：删除本章此前埋设且仍 open 的
-      await tx.foreshadow.deleteMany({
-        where: { plantedChapterId: chapterId, status: "open" },
-      });
-      // 3c. new：跳过与现存 open 重复的
-      const currentOpen = await tx.foreshadow.findMany({
-        where: { projectId: chapter.projectId, status: "open", deletedAt: null },
-        select: { id: true, title: true },
-      });
-      for (const nf of parsed.foreshadows.new) {
-        if (!nf.title) continue;
-        if (matchForeshadowTitle(nf.title, currentOpen)) continue;
-        await tx.foreshadow.create({
-          data: {
+
+        // 2. 事件：硬删重建（幂等）
+        await tx.storyEvent.deleteMany({ where: { chapterId } });
+        if (parsed.events.length > 0) {
+          await tx.storyEvent.createMany({
+            data: parsed.events.map((e, i) => ({
+              projectId: chapter.projectId,
+              chapterId,
+              chapterNo,
+              source: "chapter",
+              content: e.content,
+              characters: e.characters,
+              key: e.key,
+              order: i,
+            })),
+          });
+        }
+
+        // 3. 伏笔生命周期
+        // 3a. resolved：基于提取前的 open 快照模糊匹配
+        for (const title of parsed.foreshadows.resolved) {
+          const hit = matchForeshadowTitle(title, openForeshadows);
+          if (hit) {
+            await tx.foreshadow.update({
+              where: { id: hit.id },
+              data: {
+                status: "resolved",
+                resolvedChapterId: chapterId,
+                resolvedChapterNo: chapterNo,
+              },
+            });
+          }
+        }
+        // 3b. 幂等：删除本章此前埋设且仍 open 的
+        await tx.foreshadow.deleteMany({
+          where: { plantedChapterId: chapterId, status: "open" },
+        });
+        // 3c. new：跳过与现存 open 重复的（批量插入，减少事务内往返）
+        const currentOpen = await tx.foreshadow.findMany({
+          where: { projectId: chapter.projectId, status: "open", deletedAt: null },
+          select: { id: true, title: true },
+        });
+        const newForeshadows = parsed.foreshadows.new
+          .filter((nf) => nf.title && !matchForeshadowTitle(nf.title, currentOpen))
+          .map((nf) => ({
             projectId: chapter.projectId,
             title: nf.title,
             content: nf.content,
-            status: "open",
+            status: "open" as const,
             plantedChapterId: chapterId,
             plantedChapterNo: chapterNo,
-          },
+          }));
+        if (newForeshadows.length > 0) {
+          await tx.foreshadow.createMany({ data: newForeshadows });
+        }
+
+        // 4. 角色状态卡 upsert（先批量查现状，每角色省一次往返）
+        const charIds = parsed.characterUpdates
+          .map((cu) => matchCharacter(cu.name, characters)?.id)
+          .filter((id): id is string => !!id);
+        const existingStates = await tx.characterState.findMany({
+          where: { characterId: { in: charIds } },
         });
+        const stateByChar = new Map(existingStates.map((s) => [s.characterId, s]));
+        for (const cu of parsed.characterUpdates) {
+          const char = matchCharacter(cu.name, characters);
+          if (!char) continue; // 名单外角色忽略
+          const prev = (stateByChar.get(char.id)?.current as CharacterStateCurrent) || {};
+
+          // 旧章重提：只追加关系变化，不回退状态（防止重建记忆时覆盖新状态）
+          const isOlder =
+            prev.lastSeenChapterNo != null && prev.lastSeenChapterNo > chapterNo;
+
+          const current: CharacterStateCurrent = isOlder
+            ? {
+                ...prev,
+                relations: mergeRelations(
+                  prev.relations,
+                  cu.relationChanges,
+                  chapterNo
+                ),
+              }
+            : {
+                ...prev,
+                location: cu.location || prev.location,
+                status: cu.status || prev.status,
+                goal: cu.goal || prev.goal,
+                lastSeenChapterNo: chapterNo,
+                relations: mergeRelations(
+                  prev.relations,
+                  cu.relationChanges,
+                  chapterNo
+                ),
+              };
+
+          await tx.characterState.upsert({
+            where: { characterId: char.id },
+            create: {
+              projectId: chapter.projectId,
+              characterId: char.id,
+              current: stateToJson(current),
+            },
+            update: { current: stateToJson(current) },
+          });
+        }
+      },
+      {
+        // 生产库走 Supabase pooler（跨区 RTT 高），串行写多时默认 5s 会过期
+        timeout: 30_000,
+        maxWait: 10_000,
       }
-
-      // 4. 角色状态卡 upsert
-      for (const cu of parsed.characterUpdates) {
-        const char = matchCharacter(cu.name, characters);
-        if (!char) continue; // 名单外角色忽略
-        const existing = await tx.characterState.findUnique({
-          where: { characterId: char.id },
-        });
-        const prev = (existing?.current as CharacterStateCurrent) || {};
-
-        // 旧章重提：只追加关系变化，不回退状态（防止重建记忆时覆盖新状态）
-        const isOlder =
-          prev.lastSeenChapterNo != null && prev.lastSeenChapterNo > chapterNo;
-
-        const current: CharacterStateCurrent = isOlder
-          ? {
-              ...prev,
-              relations: mergeRelations(
-                prev.relations,
-                cu.relationChanges,
-                chapterNo
-              ),
-            }
-          : {
-              ...prev,
-              location: cu.location || prev.location,
-              status: cu.status || prev.status,
-              goal: cu.goal || prev.goal,
-              lastSeenChapterNo: chapterNo,
-              relations: mergeRelations(
-                prev.relations,
-                cu.relationChanges,
-                chapterNo
-              ),
-            };
-
-        await tx.characterState.upsert({
-          where: { characterId: char.id },
-          create: {
-            projectId: chapter.projectId,
-            characterId: char.id,
-            current: stateToJson(current),
-          },
-          update: { current: stateToJson(current) },
-        });
-      }
-    });
+    );
 
     lastExtract.set(chapterId, {
       wordCount: chapter.wordCount,
@@ -581,78 +591,88 @@ export async function extractChatWiki(
     // 积分扣减失败不阻塞提取结果落库
   }
 
-  await prisma.$transaction(async (tx) => {
-    // 幂等：chat 来源全删重建
-    await tx.storyEvent.deleteMany({ where: { projectId, source: "chat" } });
-    if (parsed.events.length > 0) {
-      await tx.storyEvent.createMany({
-        data: parsed.events.map((e, i) => ({
-          projectId,
-          chapterId: null,
-          chapterNo: 0,
-          source: "chat",
-          content: e.content,
-          characters: e.characters,
-          key: e.key,
-          order: i,
-        })),
-      });
-    }
+  await prisma.$transaction(
+    async (tx) => {
+      // 幂等：chat 来源全删重建
+      await tx.storyEvent.deleteMany({ where: { projectId, source: "chat" } });
+      if (parsed.events.length > 0) {
+        await tx.storyEvent.createMany({
+          data: parsed.events.map((e, i) => ({
+            projectId,
+            chapterId: null,
+            chapterNo: 0,
+            source: "chat",
+            content: e.content,
+            characters: e.characters,
+            key: e.key,
+            order: i,
+          })),
+        });
+      }
 
-    // chat 阶段埋的伏笔（plantedChapterId=null 且 open）幂等重建
-    await tx.foreshadow.deleteMany({
-      where: { projectId, plantedChapterId: null, status: "open" },
-    });
-    const currentOpen = await tx.foreshadow.findMany({
-      where: { projectId, status: "open", deletedAt: null },
-      select: { id: true, title: true },
-    });
-    for (const nf of parsed.foreshadows.new) {
-      if (!nf.title) continue;
-      if (matchForeshadowTitle(nf.title, currentOpen)) continue;
-      await tx.foreshadow.create({
-        data: {
+      // chat 阶段埋的伏笔（plantedChapterId=null 且 open）幂等重建（批量插入）
+      await tx.foreshadow.deleteMany({
+        where: { projectId, plantedChapterId: null, status: "open" },
+      });
+      const currentOpen = await tx.foreshadow.findMany({
+        where: { projectId, status: "open", deletedAt: null },
+        select: { id: true, title: true },
+      });
+      const newForeshadows = parsed.foreshadows.new
+        .filter((nf) => nf.title && !matchForeshadowTitle(nf.title, currentOpen))
+        .map((nf) => ({
           projectId,
           title: nf.title,
           content: nf.content,
-          status: "open",
+          status: "open" as const,
           plantedChapterId: null,
           plantedChapterNo: null,
-        },
-      });
-    }
+        }));
+      if (newForeshadows.length > 0) {
+        await tx.foreshadow.createMany({ data: newForeshadows });
+      }
 
-    // 角色状态（chat 阶段 lastSeenChapterNo=0）
-    for (const cu of parsed.characterUpdates) {
-      const char = matchCharacter(cu.name, characters);
-      if (!char) continue;
-      const existing = await tx.characterState.findUnique({
-        where: { characterId: char.id },
+      // 角色状态（chat 阶段 lastSeenChapterNo=0；先批量查现状减少往返）
+      const charIds = parsed.characterUpdates
+        .map((cu) => matchCharacter(cu.name, characters)?.id)
+        .filter((id): id is string => !!id);
+      const existingStates = await tx.characterState.findMany({
+        where: { characterId: { in: charIds } },
       });
-      const prev = (existing?.current as CharacterStateCurrent) || {};
-      const isOlder =
-        prev.lastSeenChapterNo != null && prev.lastSeenChapterNo > 0;
-      const current: CharacterStateCurrent = isOlder
-        ? { ...prev }
-        : {
-            ...prev,
-            location: cu.location || prev.location,
-            status: cu.status || prev.status,
-            goal: cu.goal || prev.goal,
-            lastSeenChapterNo: 0,
-            relations: mergeRelations(prev.relations, cu.relationChanges, 0),
-          };
-      await tx.characterState.upsert({
-        where: { characterId: char.id },
-        create: {
-          projectId,
-          characterId: char.id,
-          current: stateToJson(current),
-        },
-        update: { current: stateToJson(current) },
-      });
+      const stateByChar = new Map(existingStates.map((s) => [s.characterId, s]));
+      for (const cu of parsed.characterUpdates) {
+        const char = matchCharacter(cu.name, characters);
+        if (!char) continue;
+        const prev = (stateByChar.get(char.id)?.current as CharacterStateCurrent) || {};
+        const isOlder =
+          prev.lastSeenChapterNo != null && prev.lastSeenChapterNo > 0;
+        const current: CharacterStateCurrent = isOlder
+          ? { ...prev }
+          : {
+              ...prev,
+              location: cu.location || prev.location,
+              status: cu.status || prev.status,
+              goal: cu.goal || prev.goal,
+              lastSeenChapterNo: 0,
+              relations: mergeRelations(prev.relations, cu.relationChanges, 0),
+            };
+        await tx.characterState.upsert({
+          where: { characterId: char.id },
+          create: {
+            projectId,
+            characterId: char.id,
+            current: stateToJson(current),
+          },
+          update: { current: stateToJson(current) },
+        });
+      }
+    },
+    {
+      // 生产库走 Supabase pooler（跨区 RTT 高），串行写多时默认 5s 会过期
+      timeout: 30_000,
+      maxWait: 10_000,
     }
-  });
+  );
 
   return { ok: true };
 }

@@ -214,6 +214,10 @@ export async function importProjectAction(
       }
 
       return project.id;
+    }, {
+      // 大作品导入时章节上百，跨区 pooler RTT 高，默认 5s 会过期
+      timeout: 30_000,
+      maxWait: 10_000,
     });
 
     revalidatePath("/projects");
