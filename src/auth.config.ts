@@ -10,8 +10,11 @@ import type { NextAuthConfig } from "next-auth";
  * middleware 解码 JWT 时 token.role 不会被映射到 auth.user.role，
  * 导致 authorized 回调中 auth?.user?.role 永远是 undefined。
  */
+/** 会话有效期：30 天。jwt 过期与 sessionToken cookie 的 maxAge 必须一致 */
+const SESSION_MAX_AGE = 30 * 24 * 60 * 60;
+
 export const authConfig = {
-  session: { strategy: "jwt" },
+  session: { strategy: "jwt", maxAge: SESSION_MAX_AGE },
   pages: {
     signIn: "/login",
   },
@@ -34,7 +37,14 @@ export const authConfig = {
     return {
       sessionToken: {
         name: `${secure ? "__Secure-" : ""}authjs.session-token`,
-        options: { httpOnly: true, sameSite: "lax", path: "/", secure },
+        // maxAge 必须设：缺省时是浏览器会话级 cookie，关闭浏览器即掉登录
+        options: {
+          httpOnly: true,
+          sameSite: "lax",
+          path: "/",
+          secure,
+          maxAge: SESSION_MAX_AGE,
+        },
       },
       callbackUrl: {
         name: `${secure ? "__Secure-" : ""}authjs.callback-url`,
