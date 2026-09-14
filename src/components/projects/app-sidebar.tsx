@@ -24,6 +24,7 @@ import {
   Users,
   Gauge,
   Settings2,
+  X,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -59,6 +60,8 @@ const NAV_ITEMS = [
 
 const COLLAPSE_KEY = "mb-sidebar-collapsed";
 const INTRO_KEY = "mb-side-intro-played";
+/** 交流群提醒：每天首次进入只弹一次 */
+const COMMUNITY_REMIND_PREFIX = "mb-community-remind-";
 
 const EASE = "0.32s cubic-bezier(0.22, 1, 0.36, 1)";
 
@@ -96,6 +99,8 @@ export function AppSidebar() {
   const [checkinDone, setCheckinDone] = useState(false);
   // 套餐用量弹窗
   const [usageOpen, setUsageOpen] = useState(false);
+  // 登录后侧边栏左下角的交流群提醒卡片
+  const [communityRemind, setCommunityRemind] = useState(false);
 
   // 拉取积分状态 + 每天首次访问弹出签到提醒
   async function loadQuota(): Promise<QuotaInfo | null> {
@@ -144,6 +149,15 @@ export function AppSidebar() {
       document.removeEventListener("visibilitychange", onVisible);
     };
   }, []);
+
+  // 登录成功后每天首次进入：左下角弹出交流群提醒（关闭/加入后当天不再弹）
+  useEffect(() => {
+    if (!user) return;
+    const key = `${COMMUNITY_REMIND_PREFIX}${todayKey()}`;
+    if (localStorage.getItem(key)) return;
+    localStorage.setItem(key, "1");
+    setCommunityRemind(true);
+  }, [user]);
 
   function toggle() {
     setCollapsed((v) => {
@@ -338,6 +352,43 @@ export function AppSidebar() {
                 </span>
               </span>
             </button>
+          )}
+          {/* 交流群提醒卡片（登录后每天首次进入弹出，锚在用户卡上方） */}
+          {communityRemind && !collapsed && (
+            <div
+              className="relative mb-3 rounded-2xl border border-[#F5DFC0] bg-gradient-to-br from-[#FFF7EA] to-[#FBEAD0] p-3"
+              style={d(400)}
+            >
+              <button
+                type="button"
+                aria-label="关闭提醒"
+                onClick={() => setCommunityRemind(false)}
+                className="absolute right-1.5 top-1.5 flex h-6 w-6 items-center justify-center rounded-lg text-text-tertiary transition-colors hover:bg-bg-overlay-l1 hover:text-text-default"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+              <div className="flex items-start gap-2.5 pr-5">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-white/70 shadow-sm">
+                  <Users className="h-4 w-4 text-[#D99A00]" />
+                </span>
+                <div className="min-w-0">
+                  <p className="text-[13px] font-medium text-text-default">加入飞书交流群</p>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-text-tertiary">
+                    和作者们交流写作技巧，问题反馈优先处理
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setCommunityRemind(false);
+                  setCommunityOpen(true);
+                }}
+                className="mt-2.5 flex h-8 w-full items-center justify-center rounded-full bg-neutral-900 text-xs font-medium text-white transition-colors hover:bg-neutral-700"
+              >
+                扫码立即加入
+              </button>
+            </div>
           )}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
