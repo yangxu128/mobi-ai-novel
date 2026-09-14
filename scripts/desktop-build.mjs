@@ -14,7 +14,9 @@ import { fileURLToPath } from "node:url";
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const DESKTOP_DIR = path.join(ROOT, "desktop");
 const STANDALONE_DIR = path.join(ROOT, ".next", "standalone");
-const APP_DIR = path.join(DESKTOP_DIR, "app");
+// 注意：目录名不能用 app——electron-builder 检测到 app/package.json 会将其
+// 误判为 two-package.json 结构的应用目录（入口找 app/index.js 而非 main.cjs）
+const APP_DIR = path.join(DESKTOP_DIR, "webapp");
 const PLATFORM_URL = (process.env.NEXT_PUBLIC_PLATFORM_URL || "http://localhost:3000").replace(/\/+$/, "");
 
 function fail(msg) {
@@ -35,6 +37,7 @@ async function main() {
 
   // 1. Next standalone 构建（桌面模式）
   console.log("[build] next build（standalone + DESKTOP_MODE）...");
+  // shell: true：新版 Node 禁止无 shell 直接执行 .cmd/.bat（CVE-2024-27180）
   const npxCmd = process.platform === "win32" ? "npx.cmd" : "npx";
   const r = spawnSync(
     npxCmd,
@@ -42,6 +45,7 @@ async function main() {
     {
       cwd: ROOT,
       stdio: "inherit",
+      shell: true,
       env: {
         ...process.env,
         NEXT_OUTPUT: "standalone",
@@ -105,8 +109,8 @@ async function main() {
   console.log("[build] electron-builder --win ...");
   const eb = spawnSync(
     process.platform === "win32" ? "npx.cmd" : "npx",
-    ["electron-builder", "win"],
-    { cwd: DESKTOP_DIR, stdio: "inherit" }
+    ["electron-builder", "--win"],
+    { cwd: DESKTOP_DIR, stdio: "inherit", shell: true }
   );
   if (eb.status !== 0) fail("electron-builder 失败");
 

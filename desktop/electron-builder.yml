@@ -22,9 +22,12 @@ files:
   - "!*.yml"
 
 # Next standalone server（含 .next/static、public、prisma schema、prisma client 运行时）
+# 打包后落在 resources/webapp，由 main.cjs 读取。
+# 目标目录不能叫 app——会与 Electron 应用本体目录 resources/app 合并，
+# standalone 自带的 package.json（无 main 字段）会覆盖应用的，导致启动报 Cannot find module index.js
 extraResources:
-  - from: app
-    to: app
+  - from: webapp
+    to: webapp
 
 win:
   target:

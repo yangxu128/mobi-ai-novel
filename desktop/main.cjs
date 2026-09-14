@@ -29,8 +29,8 @@ const PG_DEFAULT_PORT = 54329;
 
 /** 运行时资源根：dev = desktop/ 本目录；打包后 = resources/ */
 const RES_ROOT = IS_DEV ? __dirname : process.resourcesPath;
-const NEXT_APP_DIR = path.join(RES_ROOT, "app");
-const PRISMA_CLI = path.join(RES_ROOT, "node_modules", "prisma", "build", "index.js");
+const NEXT_APP_DIR = path.join(RES_ROOT, "webapp");
+const PRISMA_CLI = path.join(__dirname, "node_modules", "prisma", "build", "index.js");
 const SCHEMA_PATH = path.join(NEXT_APP_DIR, "prisma", "schema.prisma");
 
 let nextServer = null;
@@ -91,7 +91,7 @@ async function startPostgres(config) {
   // embedded-postgres 是 ESM-only 包，CJS 需 dynamic import（Electron 28+ 支持）
   const mod = await import(
     require("node:url").pathToFileURL(
-      path.join(RES_ROOT, "node_modules", "embedded-postgres", "dist", "index.js")
+      path.join(__dirname, "node_modules", "embedded-postgres", "dist", "index.js")
     ).href
   );
   const EmbeddedPostgres = mod.default;

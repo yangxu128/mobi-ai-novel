@@ -68,6 +68,6 @@ wechat-article/
 
 # desktop (Electron)
 .desktop-dev/
-desktop/app/
+desktop/webapp/
 desktop/dist/
 desktop/node_modules/
