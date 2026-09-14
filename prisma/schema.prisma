@@ -54,6 +54,8 @@ model User {
   accounts       Account[]
   sessions       Session[]
   creditBalance  CreditBalance?
+  aiProviders    AiProvider[]
+  desktopTokens  DesktopToken[]
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
@@ -362,6 +364,57 @@ model Version {
 
   @@index([entityType, entityId])
   @@map("versions")
+}
+
+// ============ AI Provider 配置（桌面版多服务商 / 平台官方模型） ============
+// type: "official"（平台，每用户至多 1 条，baseUrl=平台地址，apiKey=桌面 token）
+//       "custom"（用户自填 OpenAI 协议服务商，apiKey 存本地 PG）
+// web 版部署不写入该表时，AI 链路回退环境变量单 Provider（现行为不变）
+
+model AiProvider {
+  id        String    @id @default(uuid()) @db.Uuid
+  userId    String    @db.Uuid
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  type      String    @default("custom")
+  name      String
+  baseUrl   String
+  apiKey    String
+  isDefault Boolean   @default(false)
+  models    AiModel[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("ai_providers")
+}
+
+model AiModel {
+  id         String     @id @default(uuid()) @db.Uuid
+  providerId String     @db.Uuid
+  provider   AiProvider @relation(fields: [providerId], references: [id], onDelete: Cascade)
+  modelId    String
+  name       String
+  isDefault  Boolean    @default(false)
+  createdAt  DateTime   @default(now())
+
+  @@index([providerId])
+  @@map("ai_models")
+}
+
+// 桌面版绑定平台账号的凭证（云端表）：明文 token 仅签发时返回一次，库存 sha256
+model DesktopToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @db.Uuid
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  name       String    @default("墨笔桌面版")
+  lastUsedAt DateTime?
+  expiresAt  DateTime
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+  @@map("desktop_tokens")
 }
 
 enum AIAction {

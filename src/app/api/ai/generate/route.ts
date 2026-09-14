@@ -8,13 +8,12 @@
  */
 
 import { NextRequest } from "next/server";
-import { auth } from "@/lib/auth";
+import { resolveApiUser } from "@/lib/api-user";
 import { prisma } from "@/lib/prisma";
-import { streamChat, estimateTokens, AIStreamStalledError } from "@/lib/ai/provider";
-import { resolveModel } from "@/lib/ai/models";
+import { resolveModelRef } from "@/lib/ai/provider";
 import { checkQuota } from "@/lib/ai/quota";
-import { logAIUsage, buildChapterContext } from "@/lib/ai/rag";
-import { deductCredits, TOKENS_PER_CREDIT } from "@/lib/ai/credits";
+import { buildChapterContext } from "@/lib/ai/rag";
+import { createAIChatResponse } from "@/lib/ai/chat-stream";
 import {
   inspirePrompt,
   worldbuildPrompt,
@@ -239,24 +238,29 @@ const actionHandlers: Record<string, ActionHandler> = {
 
 export async function POST(req: NextRequest) {
   // CSRF 保护：校验 Origin 头，防止跨站 POST
-  const origin = req.headers.get("origin");
-  const host = req.headers.get("host");
-  if (origin && host && !origin.includes(host)) {
-    return new Response(JSON.stringify({ error: "跨站请求被拒绝" }), {
-      status: 403,
-      headers: { "Content-Type": "application/json" },
-    });
+  // （Bearer token 请求靠 token 本身认证，跳过 Origin 校验——桌面版转发不带 Origin）
+  const hasBearer = /^Bearer\s+/i.test(req.headers.get("authorization") || "");
+  if (!hasBearer) {
+    const origin = req.headers.get("origin");
+    const host = req.headers.get("host");
+    if (origin && host && !origin.includes(host)) {
+      return new Response(JSON.stringify({ error: "跨站请求被拒绝" }), {
+        status: 403,
+        headers: { "Content-Type": "application/json" },
+      });
+    }
   }
 
-  const session = await auth();
-  if (!session?.user?.id) {
+  // 认证：浏览器 session 或桌面版 Bearer token（云端对 token 对应账号照常计费）
+  const apiUser = await resolveApiUser(req);
+  if (!apiUser) {
     return new Response(JSON.stringify({ error: "未登录" }), {
       status: 401,
       headers: { "Content-Type": "application/json" },
     });
   }
 
-  const userId = session.user.id;
+  const userId = apiUser.id;
 
   const body = await req.json().catch(() => ({}));
   const { action, projectId, payload } = body as {
@@ -274,31 +278,7 @@ export async function POST(req: NextRequest) {
     );
   }
 
-  // 配额检查（管理员 unlimited → 同时跳过下面的频次限流）
-  const quota = await checkQuota(userId);
-  if (!quota.ok) {
-    return new Response(
-      JSON.stringify({
-        error: "QUOTA_EXCEEDED",
-        available: quota.available,
-        checkInReward: quota.checkInReward,
-      }),
-      { status: 429, headers: { "Content-Type": "application/json" } }
-    );
-  }
-
-  // 限流：每用户每分钟最多 15 次 AI 请求（管理员不限量，跳过）
-  if (!quota.unlimited) {
-    const rl = rateLimit(userId, 15, 60_000);
-    if (!rl.ok) {
-      return new Response(
-        JSON.stringify({ error: "请求过于频繁，请稍后再试" }),
-        { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "60" } }
-      );
-    }
-  }
-
-  // 解析项目级模型：有 projectId 时读项目配置，否则回退到 DEFAULT_MODEL
+  // 解析项目级模型 + 双模式通道（DB Provider → env 回退）
   let projectModel: string | null = null;
   if (projectId) {
     const proj = await prisma.project.findUnique({
@@ -307,7 +287,44 @@ export async function POST(req: NextRequest) {
     });
     projectModel = proj?.model ?? null;
   }
-  const model = resolveModel(projectModel);
+  const config = await resolveModelRef(projectModel, userId);
+
+  // 配额 + 限流：仅平台通道本地计费（custom=用户自己的 Key 免费；official=云端计费）
+  let quotaRole: string | undefined;
+  if (config.channel === "platform") {
+    // 配额检查（管理员 unlimited → 同时跳过下面的频次限流）
+    const quota = await checkQuota(userId);
+    if (!quota.ok) {
+      return new Response(
+        JSON.stringify({
+          error: "QUOTA_EXCEEDED",
+          available: quota.available,
+          checkInReward: quota.checkInReward,
+        }),
+        { status: 429, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    // 限流：每用户每分钟最多 15 次 AI 请求（管理员不限量，跳过）
+    if (!quota.unlimited) {
+      const rl = rateLimit(userId, 15, 60_000);
+      if (!rl.ok) {
+        return new Response(
+          JSON.stringify({ error: "请求过于频繁，请稍后再试" }),
+          { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "60" } }
+        );
+      }
+    }
+    quotaRole = quota.role;
+  } else {
+    // custom / official：不本地计费，仅保留频次限流保护
+    const rl = rateLimit(userId, 15, 60_000);
+    if (!rl.ok) {
+      return new Response(
+        JSON.stringify({ error: "请求过于频繁，请稍后再试" }),
+        { status: 429, headers: { "Content-Type": "application/json", "Retry-After": "60" } }
+      );
+    }
+  }
 
   // 组装 prompt（策略模式分发）
   let messages: AIMessage[] = [];
@@ -338,151 +355,69 @@ export async function POST(req: NextRequest) {
     ];
   }
 
-  const encoder = new TextEncoder();
-  const abort = new AbortController();
-  req.signal.addEventListener("abort", () => abort.abort());
-
-  let completionText = "";
-  let reasoningText = "";
-  let promptTokens = 0;
-
-  const stream = new ReadableStream({
-    async start(controller) {
-      const send = (event: string, data: unknown) => {
-        controller.enqueue(
-          encoder.encode(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`)
-        );
-      };
-
-      try {
-        // 估算 prompt tokens
-        promptTokens = messages.reduce(
-          (sum, m) => sum + estimateTokens(m.content),
-          0
-        );
-        send("start", { model, promptTokens });
-
-        // maxTokens 32768：给思考与正文留足预算。
-        // 大纲类 JSON 结构化任务关闭思考（thinking disabled）：
-        // 推理模型思考动辄数万 token、耗时数分钟且大概率解析失败，
-        // 得不偿失。重试策略（共 3 轮）：
-        // - 正文为空 → 追加提示词要求直接输出后重试
-        // - 流中途挂起（AIStreamStalledError）→ 发 reset 事件清空前端已渲染内容后整体重跑
-        let attemptMsgs = messages;
-        for (let attempt = 1; attempt <= 3; attempt++) {
-          completionText = "";
-          reasoningText = "";
-          try {
-            for await (const chunk of streamChat({
-              messages: attemptMsgs,
-              model,
-              signal: abort.signal,
-              maxTokens: 32768,
-              // 深度思考由页面开关控制（默认关，全 action 生效）
-              thinking: body.thinking === true ? "enabled" : "disabled",
-            })) {
-              // 思考内容单独作为 reasoning 事件推送（前端显示思考中）
-              if (chunk.reasoning) {
-                reasoningText += chunk.delta;
-                send("reasoning", { text: chunk.delta });
-                continue;
-              }
-              if (chunk.delta) {
-                completionText += chunk.delta;
-                send("delta", { text: chunk.delta });
-              }
-            }
-          } catch (e) {
-            // 流中途挂起：provider 层已重试无果，这里清空前端内容后整体重跑
-            if (e instanceof AIStreamStalledError && attempt < 3 && !abort.signal.aborted) {
-              send("reset", { reason: "stalled", message: "生成中断，正在自动重试..." });
-              send("reasoning", { text: "\n[流式输出挂起，自动重试中...]\n" });
-              continue;
-            }
-            throw e;
-          }
-          if (completionText.trim() || attempt >= 3) break;
-          // 正文为空：提示模型直接输出后重试
-          attemptMsgs = [
-            ...attemptMsgs,
-            {
-              role: "user" as const,
-              content:
-                "你上一轮只输出了思考过程，没有输出正文。请直接输出符合要求的 JSON 数组结果，不要输出任何解释或思考过程。",
-            },
-          ];
-          send("reasoning", { text: "\n[模型未输出正文，自动重试中...]\n" });
-        }
-
-        // 计费含思考 token（推理模型的思考也是真实成本）
-        const completionTokens =
-          estimateTokens(completionText) + estimateTokens(reasoningText);
-        send("done", {
-          text: completionText,
-          promptTokens,
-          completionTokens,
-        });
-
-        // 异步记账 + 积分扣减（1 积分 = 4000 tokens，向上取整）
-        await logAIUsage({
-          userId,
-          projectId,
-          action: action as never,
-          model,
-          promptTokens,
-          completionTokens,
-        });
-        try {
-          await deductCredits(
-            userId,
-            quota.role,
-            Math.ceil((promptTokens + completionTokens) / TOKENS_PER_CREDIT)
-          );
-        } catch {
-          // 积分扣减失败不阻塞生成结果
-        }
-      } catch (e) {
-        // 提取友好错误信息
-        const err = e as Error & { 
-          status?: number; 
-          error?: { code?: string; message?: string; type?: string };
-          response?: { status?: number; data?: { error?: { code?: string; message?: string } } };
-        };
-        let errMsg = err.message || "生成失败";
-        let errCode = "";
-
-        // OpenAI SDK 错误对象结构
-        if (err.error?.code) errCode = err.error.code;
-        if (err.error?.message) errMsg = err.error.message;
-        if (err.response?.data?.error?.code) errCode = err.response.data.error.code;
-        if (err.response?.data?.error?.message) errMsg = err.response.data.error.message;
-
-        // 内容审查拦截友好提示
-        if (errCode === "data_inspection_failed" || errMsg.includes("inappropriate content")) {
-          errMsg = "输入或输出内容涉嫌敏感，已被内容安全审查拦截，请修改后重试";
-        }
-        // 配额/限流
-        if (err.status === 429 || errCode === "rate_limit_exceeded") {
-          errMsg = "AI 请求过于频繁，请稍后重试";
-        }
-        // 模型不可用
-        if (err.status === 404 || errMsg.includes("model")) {
-          errMsg = "AI 模型暂时不可用，请稍后重试";
-        }
-
-        send("error", { message: errMsg, code: errCode });
-      } finally {
-        controller.close();
+  // official 通道：本地组装完整 prompt（含本地 RAG 上下文）后转发云端，
+  // 云端用平台模型生成并对绑定账号计费（SSE 事件格式一致，直接透传）
+  if (config.channel === "official" && config.platformUrl && config.token) {
+    const upstream = await fetch(
+      `${config.platformUrl.replace(/\/+$/, "")}/api/ai/chat`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.token}`,
+        },
+        body: JSON.stringify({
+          messages,
+          model: config.modelId,
+          thinking: body.thinking === true,
+          stream: true,
+          action,
+        }),
+        signal: req.signal,
       }
-    },
-  });
+    );
 
-  return new Response(stream, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      Connection: "keep-alive",
-      "X-Accel-Buffering": "no",
+    if (!upstream.ok || !upstream.body) {
+      const text = await upstream.text().catch(() => "");
+      let errMsg = "";
+      try {
+        errMsg = (JSON.parse(text) as { error?: string }).error || "";
+      } catch {
+        // 非 JSON 错误体
+      }
+      if (upstream.status === 401) {
+        errMsg = "平台账号凭证无效或已过期，请到「AI 设置」重新绑定";
+      }
+      return new Response(
+        JSON.stringify({ error: errMsg || `平台请求失败（${upstream.status}）` }),
+        { status: upstream.status, headers: { "Content-Type": "application/json" } }
+      );
+    }
+
+    return new Response(upstream.body, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache, no-transform",
+        Connection: "keep-alive",
+        "X-Accel-Buffering": "no",
+      },
+    });
+  }
+
+  // custom / platform 通道：本地直连流式生成（SSE）
+  return createAIChatResponse({
+    messages,
+    model: config.modelId,
+    displayModel: config.ref,
+    thinking: body.thinking === true,
+    signal: req.signal,
+    usage: {
+      userId,
+      projectId,
+      // "inline" 不在记账枚举内，logAIUsage 内部 try/catch 兜底（与旧行为一致）
+      action: action as never,
+      billed: config.channel === "platform",
+      role: quotaRole,
     },
   });
 }

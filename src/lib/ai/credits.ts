@@ -155,6 +155,8 @@ export async function deductCredits(
   role: string,
   credits: number
 ): Promise<void> {
+  // 桌面版整体旁路：官方模型云端扣费、自定义模型免费，本地只记账不扣分
+  if (process.env.DESKTOP_MODE === "1") return;
   if (credits <= 0) return;
   const state = await getCreditsState(userId, role);
   if (state.unlimited) return;

@@ -65,3 +65,9 @@ wechat-article/
 .dev-err.log
 
 .node20/
+
+# desktop (Electron)
+.desktop-dev/
+desktop/app/
+desktop/dist/
+desktop/node_modules/

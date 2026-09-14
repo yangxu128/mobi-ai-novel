@@ -1,8 +1,14 @@
 import OpenAI from "openai";
+import { prisma } from "@/lib/prisma";
 
 /**
  * AI Provider 抽象层。
  * 兼容 OpenAI / 豆包 / DeepSeek / 智谱 等任意 OpenAI 协议接口。
+ *
+ * 双模式模型（桌面版/自定义模型）：
+ * - modelRef 格式 "modelId@providerId" 精确指向某条 AiProvider/AiModel 配置
+ * - resolveModelRef 解析为直连参数（custom）或平台转发参数（official）
+ * - DB 无 Provider 时回退 env（web 现行为 100% 保留）
  *
  * 内置重试机制：
  * - 请求错误：对可重试错误（429 限流、500/502/503 服务端错误、连接超时/断连）自动重试 2 次，指数退避
@@ -10,6 +16,8 @@ import OpenAI from "openai";
  *   尚无输出时直接重试；已有输出时抛 AIStreamStalledError 交由上层重跑
  * - 内容审查等 4xx 错误不重试
  */
+
+const DESKTOP_MODE = process.env.DESKTOP_MODE === "1";
 
 /** 首个 chunk 等待上限（模型排队、长 prompt 处理，TTFB 偏长是正常的） */
 const STREAM_FIRST_CHUNK_TIMEOUT_MS = 120_000;
@@ -45,10 +53,19 @@ export interface AIStreamChunk {
 
 let client: OpenAI | null = null;
 
-function getClient(): OpenAI {
+function getClient(baseUrl?: string, apiKey?: string): OpenAI {
+  // 显式连接参数（自定义 Provider / 平台配置直连）：每次构建，配置即时生效
+  if (baseUrl && apiKey) {
+    return new OpenAI({ apiKey, baseURL: baseUrl });
+  }
+  // env 回退（web 现行为）：单例
   if (client) return client;
   if (!process.env.AI_API_KEY) {
-    throw new Error("AI_API_KEY 未配置");
+    throw new Error(
+      DESKTOP_MODE
+        ? "尚未配置 AI 模型，请到「AI 设置」绑定平台账号或添加自定义模型"
+        : "AI_API_KEY 未配置"
+    );
   }
   client = new OpenAI({
     apiKey: process.env.AI_API_KEY,
@@ -58,6 +75,164 @@ function getClient(): OpenAI {
 }
 
 export const DEFAULT_MODEL = process.env.AI_MODEL || "gpt-4o-mini";
+
+export interface AIEnvModelOption {
+  id: string;
+  name: string;
+}
+
+let envModelsCache: AIEnvModelOption[] | null = null;
+
+/**
+ * env 配置的模型列表（AI_MODELS JSON 数组，回退 [AI_MODEL]）。
+ * web 平台模型的数据源；也用于旧值（纯 modelId）的合法性校验。
+ */
+export function getEnvModels(): AIEnvModelOption[] {
+  if (envModelsCache) return envModelsCache;
+  const raw = process.env.AI_MODELS;
+  if (raw) {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        envModelsCache = parsed
+          .filter(
+            (m): m is AIEnvModelOption =>
+              typeof m?.id === "string" && typeof m?.name === "string"
+          )
+          .map((m) => ({ id: m.id, name: m.name }));
+        if (envModelsCache.length > 0) return envModelsCache;
+      }
+    } catch {
+      // 解析失败，回退
+    }
+  }
+  envModelsCache = [{ id: DEFAULT_MODEL, name: DEFAULT_MODEL }];
+  return envModelsCache;
+}
+
+/* ------------------------- 双模式模型解析 ------------------------- */
+
+/** 模型通道：platform=平台 env 模型（本地计费）；custom=用户自定义 Provider（免费）；official=平台账号转发（云端计费） */
+export type ModelChannel = "platform" | "custom" | "official";
+
+export interface ResolvedModelConfig {
+  channel: ModelChannel;
+  /** API 调用的 model 参数 */
+  modelId: string;
+  /** 规范化 modelRef（"modelId@providerId"，env 回退时为纯 modelId） */
+  ref: string;
+  /** custom / platform：OpenAI 协议直连参数 */
+  baseUrl?: string;
+  apiKey?: string;
+  /** official：平台转发参数 */
+  platformUrl?: string;
+  token?: string;
+}
+
+/** 构造 modelRef */
+export function buildModelRef(modelId: string, providerId: string): string {
+  return `${modelId}@${providerId}`;
+}
+
+/** 解析 modelRef（按最后一个 @ 切分，兼容 modelId 含 @ 的场景不存在，uuid 无 @） */
+export function parseModelRef(
+  ref: string
+): { modelId: string; providerId: string } | null {
+  const idx = ref.lastIndexOf("@");
+  if (idx <= 0 || idx === ref.length - 1) return null;
+  return { modelId: ref.slice(0, idx), providerId: ref.slice(idx + 1) };
+}
+
+async function configFromProvider(
+  provider: { id: string; type: string; baseUrl: string; apiKey: string },
+  modelId: string
+): Promise<ResolvedModelConfig> {
+  const ref = buildModelRef(modelId, provider.id);
+  if (provider.type === "official") {
+    return {
+      channel: "official",
+      modelId,
+      ref,
+      platformUrl: provider.baseUrl,
+      token: provider.apiKey,
+    };
+  }
+  return {
+    channel: "custom",
+    modelId,
+    ref,
+    baseUrl: provider.baseUrl,
+    apiKey: provider.apiKey,
+  };
+}
+
+/**
+ * 解析模型引用为实际调用配置。
+ *
+ * 优先级：
+ * 1. "modelId@providerId" → 查 AiProvider（校验归属）
+ * 2. 纯 modelId → 用户 Provider 模型匹配（旧值兼容）→ env 直连（web 校验 env 列表）
+ * 3. 用户默认模型（AiModel.isDefault）
+ * 4. env 回退（web 现行为；桌面版 env 通道不本地计费）
+ */
+export async function resolveModelRef(
+  ref?: string | null,
+  userId?: string
+): Promise<ResolvedModelConfig> {
+  const envBase = process.env.AI_BASE_URL || "https://api.openai.com/v1";
+  const envKey = process.env.AI_API_KEY;
+
+  // 1. 精确引用
+  if (ref) {
+    const parsed = parseModelRef(ref);
+    if (parsed) {
+      const provider = await prisma.aiProvider.findUnique({
+        where: { id: parsed.providerId },
+      });
+      if (provider && (!userId || provider.userId === userId)) {
+        return configFromProvider(provider, parsed.modelId);
+      }
+      // provider 不存在 / 无权限 → 走默认解析
+    }
+  }
+
+  if (ref && !ref.includes("@")) {
+    // 2. 纯 modelId：先匹配用户 Provider 模型（桌面版旧值 → 默认 Provider 兼容）
+    if (userId) {
+      const match = await prisma.aiModel.findFirst({
+        where: { modelId: ref, provider: { userId } },
+        include: { provider: true },
+      });
+      if (match) return configFromProvider(match.provider, match.modelId);
+    }
+    if (DESKTOP_MODE) {
+      // 桌面版：env 直连（dev 模式沿用 .env），不本地计费
+      return { channel: "custom", modelId: ref, ref, baseUrl: envBase, apiKey: envKey };
+    }
+    // web：仅允许 env 模型列表内的值（保持旧行为，非法值回退默认）
+    if (getEnvModels().some((m) => m.id === ref)) {
+      return { channel: "platform", modelId: ref, ref, baseUrl: envBase, apiKey: envKey };
+    }
+  }
+
+  // 3. 用户默认模型
+  if (userId) {
+    const def = await prisma.aiModel.findFirst({
+      where: { isDefault: true, provider: { userId } },
+      include: { provider: true },
+    });
+    if (def) return configFromProvider(def.provider, def.modelId);
+  }
+
+  // 4. env 回退
+  return {
+    channel: DESKTOP_MODE ? "custom" : "platform",
+    modelId: DEFAULT_MODEL,
+    ref: DEFAULT_MODEL,
+    baseUrl: envBase,
+    apiKey: envKey,
+  };
+}
 
 /**
  * 判断错误是否值得重试（服务端错误、限流、连接异常）。
@@ -100,8 +275,11 @@ export async function* streamChat(opts: {
   signal?: AbortSignal;
   /** DeepSeek v4 等推理模型：disabled 可关闭思考，省 token 且大幅提速 */
   thinking?: "enabled" | "disabled";
+  /** 直连参数（自定义 Provider / 平台配置）；缺省回退 env 单例 */
+  baseUrl?: string;
+  apiKey?: string;
 }): AsyncGenerator<AIStreamChunk, void, unknown> {
-  const openai = getClient();
+  const openai = getClient(opts.baseUrl, opts.apiKey);
   const model = opts.model || DEFAULT_MODEL;
   let lastError: unknown = null;
 
@@ -234,8 +412,11 @@ export async function chat(opts: {
   maxTokens?: number;
   /** DeepSeek v4 等推理模型：disabled 可关闭思考，省 token 且防止思考烧掉 max_tokens 导致正文截断 */
   thinking?: "enabled" | "disabled";
+  /** 直连参数（自定义 Provider / 平台配置）；缺省回退 env 单例 */
+  baseUrl?: string;
+  apiKey?: string;
 }): Promise<string> {
-  const openai = getClient();
+  const openai = getClient(opts.baseUrl, opts.apiKey);
   const model = opts.model || DEFAULT_MODEL;
   let lastError: unknown = null;
 
@@ -297,4 +478,63 @@ export function estimateTokens(text: string): number {
     digits * 0.33 +            // 数字
     otherChars * 0.3           // 其他字符
   );
+}
+
+/**
+ * 高层非流式调用：解析 modelRef → 按通道调度。
+ * - official：转发平台 /api/ai/chat（Bearer token，平台计费）
+ * - custom / platform：本地直连
+ *
+ * 返回正文与解析后的配置（调用方据此决定是否本地扣费：仅 platform 通道扣）。
+ */
+export async function chatAI(opts: {
+  messages: AIMessage[];
+  modelRef?: string | null;
+  userId?: string;
+  temperature?: number;
+  maxTokens?: number;
+  thinking?: "enabled" | "disabled";
+}): Promise<{ content: string; config: ResolvedModelConfig }> {
+  const config = await resolveModelRef(opts.modelRef, opts.userId);
+
+  if (config.channel === "official" && config.platformUrl && config.token) {
+    const resp = await fetch(
+      `${config.platformUrl.replace(/\/+$/, "")}/api/ai/chat`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${config.token}`,
+        },
+        body: JSON.stringify({
+          messages: opts.messages,
+          model: config.modelId,
+          temperature: opts.temperature,
+          maxTokens: opts.maxTokens,
+          thinking: opts.thinking,
+        }),
+        signal: AbortSignal.timeout(300_000),
+      }
+    );
+    if (!resp.ok) {
+      const data = (await resp.json().catch(() => ({}))) as { error?: string };
+      if (resp.status === 401) {
+        throw new Error("平台账号凭证无效或已过期，请到「AI 设置」重新绑定");
+      }
+      throw new Error(data.error || `平台请求失败（${resp.status}）`);
+    }
+    const data = (await resp.json()) as { content?: string };
+    return { content: data.content || "", config };
+  }
+
+  const content = await chat({
+    messages: opts.messages,
+    model: config.modelId,
+    baseUrl: config.baseUrl,
+    apiKey: config.apiKey,
+    temperature: opts.temperature,
+    maxTokens: opts.maxTokens,
+    thinking: opts.thinking,
+  });
+  return { content, config };
 }

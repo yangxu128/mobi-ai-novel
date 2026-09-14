@@ -23,6 +23,7 @@ import {
   CheckCircle2,
   Users,
   Gauge,
+  Settings2,
 } from "lucide-react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -44,10 +45,16 @@ import { QUOTA_CHANGED_EVENT } from "@/hooks/use-ai-stream";
 import { toast } from "@/components/ui/toast";
 import { cn } from "@/lib/utils";
 
+/** 桌面版：隐藏签到/订阅入口，导航含「AI 设置」 */
+const DESKTOP_MODE = process.env.NEXT_PUBLIC_DESKTOP_MODE === "1";
+
 const NAV_ITEMS = [
   { href: "/", label: "首页", icon: Home, match: (p: string) => p === "/" },
   { href: "/projects", label: "我的项目", icon: FolderClosed, match: (p: string) => p.startsWith("/projects") },
   { href: "/trash", label: "回收站", icon: Trash2, match: (p: string) => p.startsWith("/trash") },
+  ...(DESKTOP_MODE
+    ? [{ href: "/settings", label: "AI 设置", icon: Settings2, match: (p: string) => p.startsWith("/settings") }]
+    : []),
 ] as const;
 
 const COLLAPSE_KEY = "mb-sidebar-collapsed";
@@ -110,6 +117,7 @@ export function AppSidebar() {
       setIntro(true);
     }
     loadQuota().then((d) => {
+      if (DESKTOP_MODE) return; // 桌面版无本地积分体系，不弹签到提醒
       if (!d || d.unlimited || d.checkedInToday) return;
       const key = `mb-checkin-remind-${todayKey()}`;
       if (localStorage.getItem(key)) return;
@@ -303,8 +311,8 @@ export function AppSidebar() {
 
         {/* 底部：每日签到 + 会员卡 + 用户 */}
         <div className={cn("mt-auto", collapsed ? "px-1.5 pb-3" : "p-3 pb-4")}>
-          {/* 每日签到（积分制：签到积分长期有效） */}
-          {!collapsed && quota && !quota.unlimited && (
+          {/* 每日签到（积分制：签到积分长期有效；桌面版无本地积分体系） */}
+          {!collapsed && !DESKTOP_MODE && quota && !quota.unlimited && (
             <button
               type="button"
               onClick={doCheckIn}
@@ -354,23 +362,34 @@ export function AppSidebar() {
                     {user?.name || "墨笔用户"}
                   </span>
                   <span className="block truncate text-[11px] text-text-tertiary">
-                    我的积分 {quota ? (quota.unlimited ? "不限量" : quota.available) : "…"}
+                    {DESKTOP_MODE
+                      ? user?.email || "本地账号"
+                      : `我的积分 ${quota ? (quota.unlimited ? "不限量" : quota.available) : "…"}`}
                   </span>
                 </span>
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="start" className="w-52">
-              <DropdownMenuItem onClick={() => setUsageOpen(true)}>
-                <Gauge className="mr-2 h-4 w-4" />
-                套餐用量
-              </DropdownMenuItem>
+              {DESKTOP_MODE ? (
+                <DropdownMenuItem onClick={() => router.push("/settings")}>
+                  <Settings2 className="mr-2 h-4 w-4" />
+                  AI 设置
+                </DropdownMenuItem>
+              ) : (
+                <>
+                  <DropdownMenuItem onClick={() => setUsageOpen(true)}>
+                    <Gauge className="mr-2 h-4 w-4" />
+                    套餐用量
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={() => router.push("/pricing")}>
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    订阅与权益
+                  </DropdownMenuItem>
+                </>
+              )}
               <DropdownMenuItem onClick={() => setCommunityOpen(true)}>
                 <Users className="mr-2 h-4 w-4" />
                 加入社区
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => router.push("/pricing")}>
-                <CreditCard className="mr-2 h-4 w-4" />
-                订阅与权益
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem
@@ -402,8 +421,9 @@ export function AppSidebar() {
       {/* 套餐用量弹窗：积分状态 + 本月消耗明细 */}
       <UsageDialog open={usageOpen} onOpenChange={setUsageOpen} />
 
-      {/* 每日签到提醒弹窗（每天首次访问弹出一次） */}
-      <Dialog open={checkinOpen} onOpenChange={setCheckinOpen}>
+      {/* 每日签到提醒弹窗（每天首次访问弹出一次；桌面版不弹） */}
+      {!DESKTOP_MODE && (
+        <Dialog open={checkinOpen} onOpenChange={setCheckinOpen}>
         <DialogContent className="max-w-sm rounded-2xl p-6">
           <DialogHeader className="p-0">
             <DialogTitle>每日签到</DialogTitle>
@@ -441,6 +461,7 @@ export function AppSidebar() {
           )}
         </DialogContent>
       </Dialog>
+      )}
     </>
   );
 }

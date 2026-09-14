@@ -1,65 +1,82 @@
 /**
- * 可用 AI 模型列表管理。
+ * 可用 AI 模型列表管理（双模式）。
  *
- * 模型列表通过环境变量 AI_MODELS 配置（JSON 数组），
- * 每项形如 { id, name }：id 为调用模型名，name 为前端显示名。
+ * 数据源（按优先级）：
+ * 1. DB：当前用户的 AiProvider + AiModel（桌面版绑定平台账号 / 自定义服务商）
+ * 2. env：AI_MODELS JSON 数组（web 平台模型；未配置回退 [AI_MODEL]）
  *
- * 若未配置或解析失败，回退到 [DEFAULT_MODEL]。
+ * web（无 Provider）→ 仅平台模型组，行为与旧版一致；
+ * 桌面版（有 Provider）→ 仅 DB 分组（生产桌面无平台 env Key，env 组无意义）。
  */
 
-import { DEFAULT_MODEL } from "./provider";
+import { prisma } from "@/lib/prisma";
+import { DEFAULT_MODEL, getEnvModels } from "./provider";
 
 export interface AIModelOption {
+  /** modelRef（"modelId@providerId"）；平台组为纯 modelId */
   id: string;
   name: string;
 }
 
-let cachedModels: AIModelOption[] | null = null;
-
-/**
- * 获取可用模型列表。
- * 服务端调用，结果缓存。
- */
-export function getAvailableModels(): AIModelOption[] {
-  if (cachedModels) return cachedModels;
-
-  const raw = process.env.AI_MODELS;
-  if (raw) {
-    try {
-      const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) {
-        cachedModels = parsed
-          .filter(
-            (m): m is AIModelOption =>
-              typeof m?.id === "string" && typeof m?.name === "string"
-          )
-          .map((m) => ({ id: m.id, name: m.name }));
-        if (cachedModels.length > 0) return cachedModels;
-      }
-    } catch {
-      // 解析失败，回退
-    }
-  }
-
-  // 回退：仅 DEFAULT_MODEL
-  cachedModels = [{ id: DEFAULT_MODEL, name: DEFAULT_MODEL }];
-  return cachedModels;
+export interface ModelProviderGroup {
+  /** env 平台组为 "env" */
+  providerId: string;
+  /** official=平台账号绑定组；custom=自定义服务商；platform=web 平台 env 组 */
+  type: "official" | "custom" | "platform";
+  name: string;
+  isDefault: boolean;
+  models: AIModelOption[];
 }
 
-/**
- * 校验模型 id 是否在可用列表中。
- */
-export function isValidModel(modelId: string | null | undefined): boolean {
-  if (!modelId) return false;
-  return getAvailableModels().some((m) => m.id === modelId);
-}
+const DESKTOP_MODE = process.env.DESKTOP_MODE === "1";
 
 /**
- * 解析项目级模型：优先用项目配置，否则回退到 DEFAULT_MODEL。
+ * 获取模型分组列表 + 全局默认 modelRef。
+ * 服务端调用（查 DB）。
  */
-export function resolveModel(projectModel: string | null | undefined): string {
-  if (projectModel && isValidModel(projectModel)) {
-    return projectModel;
+export async function getModelGroups(userId?: string): Promise<{
+  groups: ModelProviderGroup[];
+  defaultModelRef: string;
+}> {
+  const providers = userId
+    ? await prisma.aiProvider.findMany({
+        where: { userId },
+        include: { models: { orderBy: { createdAt: "asc" } } },
+        orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
+      })
+    : [];
+
+  const groups: ModelProviderGroup[] = providers.map((p) => ({
+    providerId: p.id,
+    type: p.type === "official" ? "official" : "custom",
+    name: p.name,
+    isDefault: p.isDefault,
+    models: p.models.map((m) => ({
+      id: `${m.modelId}@${p.id}`,
+      name: m.name,
+    })),
+  }));
+
+  // web：平台 env 组始终追加（现行为保留）；桌面版：生产环境无平台 env Key，不追加
+  if (!DESKTOP_MODE) {
+    groups.push({
+      providerId: "env",
+      type: "platform",
+      name: "平台模型",
+      isDefault: groups.length === 0,
+      models: getEnvModels(),
+    });
   }
-  return DEFAULT_MODEL;
+
+  // 全局默认：用户默认 AiModel → 平台默认（web）
+  const defModel = providers
+    .flatMap((p) => p.models.map((m) => ({ ...m, providerId: p.id })))
+    .find((m) => m.isDefault);
+  const defaultModelRef = defModel
+    ? `${defModel.modelId}@${defModel.providerId}`
+    : DESKTOP_MODE
+      ? ""
+      : DEFAULT_MODEL;
+
+  return { groups, defaultModelRef };
 }

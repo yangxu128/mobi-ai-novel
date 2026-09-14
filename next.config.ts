@@ -2,6 +2,8 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   reactStrictMode: true,
+  // 桌面版打包：NEXT_OUTPUT=standalone（Electron 壳 fork 独立 server）
+  ...(process.env.NEXT_OUTPUT === "standalone" ? { output: "standalone" as const } : {}),
   // Prisma/pg 相关包排除出服务端打包，运行时直接从 node_modules 加载，
   // 避免打包器破坏其内部结构（PrismaClientInitializationError 常见诱因）
   serverExternalPackages: ["@prisma/client", "@prisma/adapter-pg", "pg"],

@@ -24,8 +24,25 @@ export interface QuotaState {
 
 /**
  * 校验当前用户是否还有可用积分。
+ *
+ * 桌面版（DESKTOP_MODE=1）整体旁路：官方模型在云端计费、
+ * 自定义模型免费，本地积分体系不参与校验（直接放行）。
  */
 export async function checkQuota(userId: string): Promise<QuotaState> {
+  if (process.env.DESKTOP_MODE === "1") {
+    return {
+      ok: true,
+      unlimited: false,
+      role: "FREE",
+      monthlyGranted: 0,
+      monthlyUsed: 0,
+      bonusBalance: 0,
+      available: 0,
+      checkedInToday: false,
+      checkInReward: CHECKIN_REWARD,
+    };
+  }
+
   const user = await prisma.user.findUnique({
     where: { id: userId },
     select: { role: true },

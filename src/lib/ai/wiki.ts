@@ -11,7 +11,7 @@
 
 import { prisma } from "@/lib/prisma";
 import type { Prisma } from "@prisma/client";
-import { chat as aiChat, estimateTokens, DEFAULT_MODEL } from "./provider";
+import { chatAI, estimateTokens, resolveModelRef } from "./provider";
 import { wikiExtractPrompt } from "./prompts";
 import { checkQuota } from "./quota";
 import { logAIUsage } from "./rag";
@@ -297,14 +297,20 @@ export async function extractChapterWiki(
   inflight.add(chapterId);
 
   try {
-    // 配额预检
-    const usage = await checkQuota(chapter.project.userId);
-    const estimatedPrompt = estimateTokens(plain) + 800;
-    if (!usage.unlimited && usage.available < estimatedPrompt + 1600) {
-      console.warn(
-        `[wiki] 配额不足，跳过记忆提取（剩余 ${usage.available}）`
-      );
-      return { ok: false, skipped: "quota" };
+    // 配额预检：仅平台模型本地计费（自定义模型免费、官方模型云端计费）
+    const preConfig = await resolveModelRef(
+      chapter.project.model,
+      chapter.project.userId
+    );
+    if (preConfig.channel === "platform") {
+      const usage = await checkQuota(chapter.project.userId);
+      const estimatedPrompt = estimateTokens(plain) + 800;
+      if (!usage.unlimited && usage.available < estimatedPrompt + 1600) {
+        console.warn(
+          `[wiki] 配额不足，跳过记忆提取（剩余 ${usage.available}）`
+        );
+        return { ok: false, skipped: "quota" };
+      }
     }
 
     const [chapterNo, characters, openForeshadows] = await Promise.all([
@@ -330,12 +336,12 @@ export async function extractChapterWiki(
       })),
     });
 
-    const model = chapter.project.model || DEFAULT_MODEL;
-    const raw = await aiChat({
+    const { content: raw, config } = await chatAI({
       messages,
+      modelRef: chapter.project.model,
+      userId: chapter.project.userId,
       temperature: 0.2,
       maxTokens: 2000,
-      model,
       // 结构化提取无需思考；防推理烧掉 max_tokens 导致正文截断/为空
       thinking: "disabled",
     });
@@ -346,25 +352,28 @@ export async function extractChapterWiki(
       return { ok: false, error: "提取结果解析失败" };
     }
 
-    // 记账 + 扣积分（失败不阻塞；此前只记账不扣分，记忆提取消耗漏统计）
+    // 记账（+ 扣积分：仅平台通道；失败不阻塞）
     const wikiPromptTokens = messages.reduce((s, m) => s + estimateTokens(m.content), 0);
     const wikiCompletionTokens = estimateTokens(raw);
     await logAIUsage({
       userId: chapter.project.userId,
       projectId: chapter.projectId,
       action: "wikiExtract",
-      model,
+      model: config.ref,
       promptTokens: wikiPromptTokens,
       completionTokens: wikiCompletionTokens,
     });
-    try {
-      await deductCredits(
-        chapter.project.userId,
-        usage.role,
-        Math.ceil((wikiPromptTokens + wikiCompletionTokens) / TOKENS_PER_CREDIT)
-      );
-    } catch {
-      // 积分扣减失败不阻塞提取结果落库
+    if (config.channel === "platform") {
+      const quota = await checkQuota(chapter.project.userId);
+      try {
+        await deductCredits(
+          chapter.project.userId,
+          quota.role,
+          Math.ceil((wikiPromptTokens + wikiCompletionTokens) / TOKENS_PER_CREDIT)
+        );
+      } catch {
+        // 积分扣减失败不阻塞提取结果落库
+      }
     }
 
     await prisma.$transaction(
@@ -531,11 +540,18 @@ export async function extractChatWiki(
     return { ok: false, skipped: "empty" };
   }
 
-  const usage = await checkQuota(session.project.userId);
-  const estimatedPrompt = estimateTokens(dialogue) + 800;
-  if (!usage.unlimited && usage.available < estimatedPrompt + 1600) {
-    console.warn("[wiki] 配额不足，跳过对话记忆提取");
-    return { ok: false, skipped: "quota" };
+  // 配额预检：仅平台模型本地计费（自定义模型免费、官方模型云端计费）
+  const preConfig = await resolveModelRef(
+    session.project.model,
+    session.project.userId
+  );
+  if (preConfig.channel === "platform") {
+    const usage = await checkQuota(session.project.userId);
+    const estimatedPrompt = estimateTokens(dialogue) + 800;
+    if (!usage.unlimited && usage.available < estimatedPrompt + 1600) {
+      console.warn("[wiki] 配额不足，跳过对话记忆提取");
+      return { ok: false, skipped: "quota" };
+    }
   }
 
   const characters = await prisma.character.findMany({
@@ -552,12 +568,12 @@ export async function extractChatWiki(
     openForeshadows: [],
   });
 
-  const model = session.project.model || DEFAULT_MODEL;
-  const raw = await aiChat({
+  const { content: raw, config } = await chatAI({
     messages: promptMessages,
+    modelRef: session.project.model,
+    userId: session.project.userId,
     temperature: 0.2,
     maxTokens: 2000,
-    model,
     // 结构化提取无需思考；防推理烧掉 max_tokens 导致正文截断/为空
     thinking: "disabled",
   });
@@ -567,7 +583,7 @@ export async function extractChatWiki(
     return { ok: false, error: "提取结果解析失败" };
   }
 
-  // 记账 + 扣积分（失败不阻塞；此前只记账不扣分）
+  // 记账（+ 扣积分：仅平台通道；失败不阻塞）
   const chatPromptTokens = promptMessages.reduce(
     (s, m) => s + estimateTokens(m.content),
     0
@@ -577,18 +593,21 @@ export async function extractChatWiki(
     userId: session.project.userId,
     projectId,
     action: "wikiExtract",
-    model,
+    model: config.ref,
     promptTokens: chatPromptTokens,
     completionTokens: chatCompletionTokens,
   });
-  try {
-    await deductCredits(
-      session.project.userId,
-      usage.role,
-      Math.ceil((chatPromptTokens + chatCompletionTokens) / TOKENS_PER_CREDIT)
-    );
-  } catch {
-    // 积分扣减失败不阻塞提取结果落库
+  if (config.channel === "platform") {
+    const quota = await checkQuota(session.project.userId);
+    try {
+      await deductCredits(
+        session.project.userId,
+        quota.role,
+        Math.ceil((chatPromptTokens + chatCompletionTokens) / TOKENS_PER_CREDIT)
+      );
+    } catch {
+      // 积分扣减失败不阻塞提取结果落库
+    }
   }
 
   await prisma.$transaction(

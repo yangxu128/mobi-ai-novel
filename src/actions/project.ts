@@ -73,9 +73,13 @@ export async function createProjectAction(formData: FormData) {
     return { ok: false, error: parsed.error.errors[0].message };
   }
 
-  // 免费版限制 1 个项目
+  // 免费版限制 1 个项目（桌面版无套餐概念，不限制）
   const count = await prisma.project.count({ where: { userId: user.id } });
-  if (user.role === "FREE" && count >= 1) {
+  if (
+    process.env.DESKTOP_MODE !== "1" &&
+    user.role === "FREE" &&
+    count >= 1
+  ) {
     return { ok: false, error: "免费版仅可创建 1 个项目，请升级" };
   }
 

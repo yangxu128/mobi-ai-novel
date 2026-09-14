@@ -1,0 +1,20 @@
+{
+  "name": "mobi-desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "墨笔 AI 写作平台桌面版（Electron + 本地 PostgreSQL）",
+  "main": "main.cjs",
+  "scripts": {
+    "start": "electron .",
+    "postinstall": "node -e \"console.log('desktop deps installed')\"",
+    "build:win": "electron-builder --win"
+  },
+  "dependencies": {
+    "embedded-postgres": "^17.5.0-beta.15",
+    "prisma": "^5.22.0"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  }
+}

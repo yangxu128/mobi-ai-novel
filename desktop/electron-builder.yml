@@ -1,0 +1,44 @@
+# 墨笔桌面版打包配置（仅 Windows：NSIS 安装包 + 便携版）
+#
+# asar 关闭：embedded-postgres 的 initdb/postgres.exe、prisma engines
+# 均为原生二进制，child_process 无法执行 asar 虚拟路径，实体目录最稳。
+# files 显式列表 + electron-builder 自动追加 production dependencies
+# （embedded-postgres / prisma 及其依赖，不含 electron/electron-builder）。
+
+appId: com.mobi.desktop
+productName: 墨笔
+copyright: Copyright © 2026
+
+directories:
+  output: dist
+  buildResources: build
+
+asar: false
+
+files:
+  - main.cjs
+  - preload.cjs
+  - package.json
+  - "!*.yml"
+
+# Next standalone server（含 .next/static、public、prisma schema、prisma client 运行时）
+extraResources:
+  - from: app
+    to: app
+
+win:
+  target:
+    - target: nsis
+      arch: [x64]
+    - target: portable
+      arch: [x64]
+  icon: build/icon.png
+
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  artifactName: ${productName}-${version}-setup.${ext}
+
+portable:
+  artifactName: ${productName}-${version}-portable.${ext}
