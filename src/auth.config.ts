@@ -1,4 +1,5 @@
 import type { NextAuthConfig } from "next-auth";
+import { NextResponse } from "next/server";
 
 /**
  * 轻量级 Auth 配置，可在 middleware（Edge Runtime）中使用。
@@ -82,6 +83,18 @@ export const authConfig = {
     authorized({ auth, request }) {
       const isLoggedIn = !!auth?.user;
       const { pathname } = request.nextUrl;
+
+      // 已登录用户访问登录/注册页：直接送回工作台。
+      // 官网/内容页的 CTA 链接统一指向 /register，未按登录态区分，
+      // 这里兜底避免登录用户点了「进入工作台」却落在注册页。
+      if (isLoggedIn && (pathname === "/login" || pathname === "/register")) {
+        // 带 callbackUrl 的到达是页面级「会话在但业务校验未过」的回跳
+        // （典型：用户已被删除，JWT 有效但页面判定未登录）。
+        // 此时放行登录页，避免与页面级 redirect 互相跳转形成死循环。
+        if (!request.nextUrl.searchParams.has("callbackUrl")) {
+          return NextResponse.redirect(new URL("/projects", request.nextUrl));
+        }
+      }
 
       // 公开路由放行（官网营销页与内容页对未登录访客开放）
       const publicPaths = [

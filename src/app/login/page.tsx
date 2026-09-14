@@ -1,9 +1,9 @@
 "use client";
 
-import { Suspense, useState } from "react";
+import { Suspense, useEffect, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { signIn } from "next-auth/react";
+import { signIn, signOut, useSession } from "next-auth/react";
 import { Eye, EyeOff, Github } from "lucide-react";
 import { AuthArtworkPanel } from "@/components/auth/auth-artwork-panel";
 
@@ -36,6 +36,16 @@ function safeCallbackUrl(url: string | null): string {
 function LoginForm() {
   const params = useSearchParams();
   const callbackUrl = safeCallbackUrl(params.get("callbackUrl"));
+  const { data: session } = useSession();
+
+  // 自愈：用户已被删除但 JWT 仍有效（session 端点返回空 id）时，
+  // middleware 会把 /register 等入口弹回 /projects，用户无法注册恢复。
+  // 这里主动清掉过期会话，之后的注册/登录链接即可正常使用。
+  useEffect(() => {
+    if (session?.user && !session.user.id) {
+      signOut({ redirect: false });
+    }
+  }, [session]);
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,6 +85,7 @@ function LoginForm() {
           id="email"
           type="email"
           required
+          autoFocus
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="请输入邮箱"

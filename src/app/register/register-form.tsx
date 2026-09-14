@@ -62,6 +62,7 @@ export function RegisterForm() {
               id="name"
               name="name"
               required
+              autoFocus
               maxLength={32}
               placeholder="你的笔名"
               autoComplete="nickname"
