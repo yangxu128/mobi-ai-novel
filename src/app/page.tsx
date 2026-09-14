@@ -65,7 +65,7 @@ export default function Home() {
             </form>
           </Reveal>
           <Reveal delay={860} y={10}>
-            <p className="mt-4 text-xs text-text-tertiary">免费版包含 1 个项目 + 每日 500 字 AI 续写</p>
+            <p className="mt-4 text-xs text-text-tertiary">免费版包含 1 个项目 + 每日签到领 50 积分</p>
           </Reveal>
         </section>
 

@@ -55,7 +55,7 @@ export function RegisterForm() {
       <div className="flex min-h-full flex-1 items-center justify-center px-8 py-12">
         <div className="w-full max-w-md">
           <h1 className="text-3xl font-bold tracking-tight text-text-default">创建墨笔账号</h1>
-          <p className="mt-2.5 text-text-secondary">1 个项目 + 每日 500 字 AI 续写，永久免费</p>
+          <p className="mt-2.5 text-text-secondary">1 个项目 + 每日签到领 50 积分，永久免费</p>
 
           <form onSubmit={onSubmit} className="mt-10 space-y-4">
             <input

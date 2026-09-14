@@ -5,7 +5,7 @@ const STATS = [
   { v: "3 种", l: "创作模式", dot: "bg-bg-brand" },
   { v: "6 步", l: "创作流水线", dot: "bg-[#F2A90C]" },
   { v: "1M", l: "上下文窗口", dot: "bg-[#FFB25C]" },
-  { v: "500 字/天", l: "免费 AI 续写", dot: "bg-[#FF7A5C]" },
+  { v: "50 积分/天", l: "签到免费领", dot: "bg-[#FF7A5C]" },
 ];
 
 /**
@@ -27,9 +27,9 @@ export function AuthArtworkPanel() {
       {/* 底部营销区 */}
       <div>
         <div className="text-[2.6rem] font-bold leading-[1.25] tracking-tight text-text-default">
-          新用户注册即送
+          新用户注册即可
           <br />
-          <span className="brand-gradient-text">每日 500 字</span> AI 续写额度
+          <span className="brand-gradient-text">每日签到领 50 积分</span>
         </div>
         <div className="mt-10 grid grid-cols-4 gap-5">
           {STATS.map((s) => (
