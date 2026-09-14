@@ -4,8 +4,11 @@ import { Suspense, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { signIn } from "next-auth/react";
-import { Github } from "lucide-react";
+import { Eye, EyeOff, Github } from "lucide-react";
 import { AuthArtworkPanel } from "@/components/auth/auth-artwork-panel";
+
+/** 桌面版：隐藏第三方登录（本地无 GitHub OAuth 回调） */
+const DESKTOP_MODE = process.env.NEXT_PUBLIC_DESKTOP_MODE === "1";
 
 /** 只允许站内跳转，防开放重定向（如 ?callbackUrl=https://evil.com）。
  * 相对路径直接放行；绝对地址仅当与当前站点同源时放行
@@ -36,6 +39,7 @@ function LoginForm() {
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -77,16 +81,27 @@ function LoginForm() {
           autoComplete="email"
           className="auth-input"
         />
-        <input
-          id="password"
-          type="password"
-          required
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          placeholder="请输入密码（至少 6 位）"
-          autoComplete="current-password"
-          className="auth-input"
-        />
+        <div className="relative">
+          <input
+            id="password"
+            type={showPassword ? "text" : "password"}
+            required
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="请输入密码（至少 6 位）"
+            autoComplete="current-password"
+            className="auth-input pr-12"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPassword((v) => !v)}
+            aria-label={showPassword ? "隐藏密码" : "显示密码"}
+            tabIndex={-1}
+            className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-text-tertiary transition-colors hover:text-text-default"
+          >
+            {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+          </button>
+        </div>
         {error && <p className="text-sm text-status-error">{error}</p>}
         <button
           type="submit"
@@ -97,20 +112,24 @@ function LoginForm() {
         </button>
       </form>
 
-      <div className="mt-9 flex items-center gap-4">
-        <span className="h-px flex-1 bg-bg-overlay-l3" />
-        <span className="text-xs text-text-tertiary">其他方式</span>
-        <span className="h-px flex-1 bg-bg-overlay-l3" />
-      </div>
+      {!DESKTOP_MODE && (
+        <>
+          <div className="mt-9 flex items-center gap-4">
+            <span className="h-px flex-1 bg-bg-overlay-l3" />
+            <span className="text-xs text-text-tertiary">其他方式</span>
+            <span className="h-px flex-1 bg-bg-overlay-l3" />
+          </div>
 
-      <button
-        onClick={() => signIn("github", { callbackUrl })}
-        disabled={loading}
-        className="mt-6 flex h-[3.25rem] w-full items-center justify-center gap-2.5 rounded-full border border-border-neutral-l2 bg-white text-sm text-text-default transition-colors hover:bg-neutral-50 disabled:opacity-60"
-      >
-        <Github className="h-4 w-4" />
-        使用 GitHub 登录
-      </button>
+          <button
+            onClick={() => signIn("github", { callbackUrl })}
+            disabled={loading}
+            className="mt-6 flex h-[3.25rem] w-full items-center justify-center gap-2.5 rounded-full border border-border-neutral-l2 bg-white text-sm text-text-default transition-colors hover:bg-neutral-50 disabled:opacity-60"
+          >
+            <Github className="h-4 w-4" />
+            使用 GitHub 登录
+          </button>
+        </>
+      )}
 
       <p className="mt-8 text-sm text-text-tertiary">
         还没有账号？{" "}

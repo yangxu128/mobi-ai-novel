@@ -3,7 +3,6 @@
 import { revalidatePath } from "next/cache";
 import bcrypt from "bcryptjs";
 import { prisma } from "@/lib/prisma";
-import { signIn } from "@/lib/auth";
 import { z } from "zod";
 import { headers } from "next/headers";
 import { rateLimit } from "@/lib/ai/rate-limit";
@@ -42,34 +41,35 @@ export async function registerAction(formData: FormData) {
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
+  const desktop = process.env.DESKTOP_MODE === "1";
   let user;
   try {
     user = await prisma.user.create({
-      data: {
-        email,
-        name,
-        passwordHash,
-        // 新用户默认基础套餐（BASIC：1000 积分/月），积分按 role 读取须同步设置
-        role: "BASIC",
-        subscription: { create: { plan: "BASIC", status: "active" } },
-      },
+      data: desktop
+        ? {
+            email,
+            name,
+            passwordHash,
+            // 桌面版：注册即为普通用户，无本地套餐；官方模型使用权取决于
+            // 绑定的云端账号订阅，未绑定/未购买只能使用自定义模型
+            role: "FREE",
+          }
+        : {
+            email,
+            name,
+            passwordHash,
+            // 新用户默认基础套餐（BASIC：1000 积分/月），积分按 role 读取须同步设置
+            role: "BASIC",
+            subscription: { create: { plan: "BASIC", status: "active" } },
+          },
     });
   } catch {
     // 并发注册同一邮箱触发唯一约束
     return { ok: false, error: "该邮箱已注册" };
   }
 
-  // 自动登录
-  try {
-    await signIn("credentials", {
-      email,
-      password,
-      redirect: false,
-    });
-  } catch {
-    // 忽略，让用户手动登录
-  }
-
+  // 自动登录由注册页前端走标准 signIn 流程完成
+  // （Server Action 内 signIn 无法可靠写入 session cookie）
   revalidatePath("/");
   return { ok: true, userId: user.id };
 }

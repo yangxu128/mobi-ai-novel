@@ -2,15 +2,16 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { signIn } from "next-auth/react";
+import { Eye, EyeOff } from "lucide-react";
 import { AuthArtworkPanel } from "@/components/auth/auth-artwork-panel";
 import { registerAction } from "@/actions/auth";
 import { toast } from "@/components/ui/toast";
 
 export function RegisterForm() {
-  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
 
   async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -18,14 +19,28 @@ export function RegisterForm() {
     setLoading(true);
     try {
       const fd = new FormData(e.currentTarget);
+      const email = String(fd.get("email") || "");
+      const password = String(fd.get("password") || "");
       const res = await registerAction(fd);
       if (!res.ok) {
         setError(res.error || "注册失败");
         return;
       }
+      // 注册成功后走标准客户端登录（Server Action 内无法可靠写入
+      // session cookie，曾导致注册后被踢回登录页）
+      const login = await signIn("credentials", {
+        email,
+        password,
+        redirect: false,
+      });
+      if (login?.error) {
+        toast({ title: "注册成功", description: "请使用邮箱密码登录", type: "success" });
+        window.location.href = "/login";
+        return;
+      }
       toast({ title: "注册成功", description: "正在进入工作台", type: "success" });
-      router.push("/projects");
-      router.refresh();
+      // 完整页面导航，确保 session cookie 写入后再走 middleware 校验
+      window.location.href = "/projects";
     } catch {
       // 服务端 500（如环境变量未配置）时给出可见反馈，而不是永远转圈
       setError("注册服务暂时不可用，请稍后再试或联系管理员");
@@ -61,16 +76,27 @@ export function RegisterForm() {
               autoComplete="email"
               className="auth-input"
             />
-            <input
-              id="password"
-              name="password"
-              type="password"
-              required
-              minLength={6}
-              placeholder="请设置密码（至少 6 位）"
-              autoComplete="new-password"
-              className="auth-input"
-            />
+            <div className="relative">
+              <input
+                id="password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                required
+                minLength={6}
+                placeholder="请设置密码（至少 6 位）"
+                autoComplete="new-password"
+                className="auth-input pr-12"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                aria-label={showPassword ? "隐藏密码" : "显示密码"}
+                tabIndex={-1}
+                className="absolute right-4 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center text-text-tertiary transition-colors hover:text-text-default"
+              >
+                {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
             {error && <p className="text-sm text-status-error">{error}</p>}
             <button
               type="submit"
