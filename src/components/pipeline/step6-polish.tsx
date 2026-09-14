@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -11,6 +11,7 @@ import { useAIStream } from "@/hooks/use-ai-stream";
 import { saveChapterContentAction, markChapterFinalAction } from "@/actions/chapter";
 import { toast } from "@/components/ui/toast";
 import { formatWordCount, htmlToText, textToHtml } from "@/lib/utils";
+import { readPipelineDraft, writePipelineDraft } from "@/lib/pipeline-draft";
 
 interface Chapter {
   id: string;
@@ -21,6 +22,8 @@ interface Chapter {
 }
 
 const polishStyles = ["文笔提升", "对话优化", "节奏调整", "环境描写"] as const;
+
+const EDIT_AUTOSAVE_DELAY = 3000;
 
 export function Step6Polish({
   projectId,
@@ -34,13 +37,65 @@ export function Step6Polish({
   const [draft, setDraft] = useState<Record<string, string>>({});
   const [style, setStyle] = useState<(typeof polishStyles)[number]>("文笔提升");
   const [selectedText, setSelectedText] = useState("");
+  const [restoredCheck, setRestoredCheck] = useState("");
+  const savingRef = useRef(false);
+  const editTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  // 三个独立的 stream：润色全文 / 行内润色 / 一致性检查
+  /** 静默自动保存（纯文本 → TipTap HTML 入库），与第五步扩写同一策略 */
+  async function autoSave(chapterId: string, plain: string) {
+    if (!chapterId || !plain.trim() || savingRef.current) return;
+    savingRef.current = true;
+    try {
+      const res = await saveChapterContentAction(chapterId, textToHtml(plain));
+      if (res.ok) {
+        toast({ title: "已自动保存", type: "success" });
+      } else {
+        toast({ title: "自动保存失败", description: res.error, type: "error" });
+      }
+    } catch {
+      toast({ title: "自动保存失败", type: "error" });
+    } finally {
+      savingRef.current = false;
+    }
+  }
+
+  // 三个独立的 stream：润色全文 / 行内润色 / 一致性检查。
+  // 生成完成或手动停止都会自动保存，刷新/意外退出不丢内容
   const polishStream = useAIStream({
-    onDone: (full) => activeId && setDraft((d) => ({ ...d, [activeId]: full })),
+    onDone: (full) => {
+      if (!activeId) return;
+      setDraft((d) => ({ ...d, [activeId]: full }));
+      void autoSave(activeId, full);
+    },
+    onAbort: (partial) => {
+      if (!activeId || !partial.trim()) return;
+      setDraft((d) => ({ ...d, [activeId]: partial }));
+      void autoSave(activeId, partial);
+    },
   });
-  const inlineStream = useAIStream();
+  const inlineStream = useAIStream({
+    onDone: (full) => mergeInlineResult(full),
+    onAbort: (partial) => mergeInlineResult(partial),
+  });
   const checkStream = useAIStream();
+
+  // 行内润色结果并入草稿并自动保存（替换首个选中文本）
+  function mergeInlineResult(full: string) {
+    if (!activeId || !selectedText.trim() || !full.trim()) return;
+    const merged = activeDraft.replace(selectedText, () => full);
+    setDraft((d) => ({ ...d, [activeId]: merged }));
+    void autoSave(activeId, merged);
+  }
+
+  // 一致性检查报告本地持久化：重新生成要花积分，刷新不应丢失
+  useEffect(() => {
+    const saved = readPipelineDraft<string>(projectId, "6-check");
+    if (saved) setRestoredCheck(saved);
+  }, [projectId]);
+  useEffect(() => {
+    if (checkStream.isStreaming || !checkStream.text) return;
+    writePipelineDraft(projectId, "6-check", checkStream.text);
+  }, [projectId, checkStream.isStreaming, checkStream.text]);
 
   const activeChapter = chapters.find((c) => c.id === activeId);
   const initialText = htmlToText(activeChapter?.content);
@@ -240,7 +295,16 @@ export function Step6Polish({
                   ? activeDraft.replace(selectedText, inlineStream.text)
                   : activeDraft
               }
-              onChange={(e) => activeId && setDraft((d) => ({ ...d, [activeId]: e.target.value }))}
+              onChange={(e) => {
+                if (!activeId || polishStream.isStreaming || inlineStream.isStreaming) return;
+                const v = e.target.value;
+                setDraft((d) => ({ ...d, [activeId]: v }));
+                // 手动编辑防抖自动保存，与第五步扩写一致
+                if (editTimerRef.current) clearTimeout(editTimerRef.current);
+                editTimerRef.current = setTimeout(() => {
+                  void autoSave(activeId, v);
+                }, EDIT_AUTOSAVE_DELAY);
+              }}
               onSelect={onSelectText}
               onKeyUp={onSelectText}
               placeholder="润色结果将显示在此"
@@ -304,12 +368,12 @@ export function Step6Polish({
               </pre>
             )}
 
-            {!checkStream.isStreaming && checkStream.text && (
+            {!checkStream.isStreaming && (checkStream.text || restoredCheck) && (
               <div className="mt-3 space-y-2">
-                {tryParseConflicts(checkStream.text).length === 0 ? (
+                {tryParseConflicts(checkStream.text || restoredCheck).length === 0 ? (
                   <p className="text-xs text-status-success">未发现矛盾，章节一致。</p>
                 ) : (
-                  tryParseConflicts(checkStream.text).map((c, i) => (
+                  tryParseConflicts(checkStream.text || restoredCheck).map((c, i) => (
                     <div key={i} className="p-2 rounded-md bg-status-warning/10 border border-status-warning/30">
                       <div className="text-xs font-medium text-status-warning">矛盾 {i + 1}</div>
                       <div className="text-xs mt-1">

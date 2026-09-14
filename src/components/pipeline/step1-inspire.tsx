@@ -1,12 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Sparkles, Loader2, Check, RefreshCw } from "lucide-react";
 import { useAIStream } from "@/hooks/use-ai-stream";
 import { updateProjectSynopsisSelected } from "@/actions/project";
+import {
+  clearPipelineDraft,
+  readPipelineDraft,
+  writePipelineDraft,
+} from "@/lib/pipeline-draft";
 
 interface InspirationCard {
   core: string;
@@ -16,14 +21,35 @@ interface InspirationCard {
   reference: string;
 }
 
+interface Step1Draft {
+  idea: string;
+  cards: InspirationCard[] | null;
+  selected: number | null;
+}
+
 export function Step1Inspire({ projectId, genre }: { projectId: string; genre: string }) {
   const [idea, setIdea] = useState("");
   const [selected, setSelected] = useState<number | null>(null);
+  // 上次会话生成但未确认的灵感卡（刷新恢复用）；新一轮生成后由流式解析结果接管
+  const [restoredCards, setRestoredCards] = useState<InspirationCard[] | null>(null);
+  const hydratedRef = useRef(false);
   const { generate, isStreaming, text, error, stop } = useAIStream();
+
+  // 刷新恢复：草稿里保存了输入的灵感、生成的卡片与选中项
+  useEffect(() => {
+    const draft = readPipelineDraft<Step1Draft>(projectId, 1);
+    if (draft) {
+      setIdea(draft.idea || "");
+      if (draft.cards && draft.cards.length > 0) setRestoredCards(draft.cards);
+      setSelected(draft.selected ?? null);
+    }
+    hydratedRef.current = true;
+  }, [projectId]);
 
   async function onGenerate() {
     if (!idea.trim()) return;
     setSelected(null);
+    setRestoredCards(null);
     await generate({
       action: "inspire",
       projectId,
@@ -36,6 +62,19 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
     if (!text) return null;
     return tryParseCards(text);
   }, [text]);
+
+  // 草稿防抖持久化（流式期间 parsed 逐块变化，500ms 合并写入）
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    const timer = setTimeout(() => {
+      writePipelineDraft(projectId, 1, {
+        idea,
+        cards: parsed ?? restoredCards,
+        selected,
+      } satisfies Step1Draft);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [projectId, idea, parsed, restoredCards, selected]);
 
   function tryParseCards(raw: string): InspirationCard[] | null {
     // 去掉 markdown 代码块标记
@@ -105,6 +144,9 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
   // 是否显示原始文本：有文本且未成功解析出卡片
   const showRaw = text && !parsed;
 
+  // 展示用卡片：流式解析结果优先，否则用刷新恢复的草稿卡片
+  const cards = parsed ?? restoredCards;
+
   return (
     <div className="space-y-6">
       <div>
@@ -160,7 +202,7 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
       )}
 
       {/* 灵感卡展示 */}
-      {parsed && parsed.length > 0 && (
+      {cards && cards.length > 0 && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
             <p className="text-sm text-text-tertiary">
@@ -172,7 +214,7 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
             </Button>
           </div>
           <div className="grid md:grid-cols-3 gap-3">
-            {parsed.map((c, i) => (
+            {cards.map((c, i) => (
               <Card
                 key={i}
                 className={`cursor-pointer transition-all rounded-2xl border-border-neutral-l1 shadow-sm bg-bg-base-default ${
@@ -216,9 +258,13 @@ export function Step1Inspire({ projectId, genre }: { projectId: string; genre: s
             <div className="flex justify-end">
               <Button
                 onClick={async () => {
-                  const card = parsed[selected];
+                  const card = cards[selected];
+                  if (!card) return;
                   const summary = `${card.core}\n核心冲突：${card.conflict}\n情绪基调：${card.mood}`;
-                  await updateProjectSynopsisSelected(projectId, summary);
+                  const res = await updateProjectSynopsisSelected(projectId, summary);
+                  if (!res.ok) return;
+                  // 已确认落库，草稿完成使命
+                  clearPipelineDraft(projectId, 1);
                   // 携带最新 synopsis：流水线本地状态同步，无需刷新页面
                   window.dispatchEvent(
                     new CustomEvent("pipeline-step-next", { detail: { synopsis: summary } })

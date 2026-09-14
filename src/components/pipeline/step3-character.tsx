@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,11 @@ import { Sparkles, Loader2, Plus, Trash2, Save } from "lucide-react";
 import { useAIStream } from "@/hooks/use-ai-stream";
 import { saveCharacterAction } from "@/actions/knowledge";
 import { toast } from "@/components/ui/toast";
+import {
+  clearPipelineDraft,
+  readPipelineDraft,
+  writePipelineDraft,
+} from "@/lib/pipeline-draft";
 
 interface CharacterItem {
   id?: string; // 已保存记录的 id：再次保存走 update，避免重复创建
@@ -47,10 +52,20 @@ interface Props {
 
 export function Step3Character({ projectId, genre, worldSummary, existing }: Props) {
   const [items, setItems] = useState<CharacterItem[]>([]);
+  const initializedRef = useRef(false);
   const { generate, isStreaming, text, error, stop } = useAIStream();
 
+  // 初始化（仅一次）：优先恢复未确认的本地草稿（刷新前正在编辑的内容），
+  // 否则回填知识库已有角色，避免后续渲染覆盖用户编辑
   useEffect(() => {
-    if (existing.length > 0 && items.length === 0) {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    const draft = readPipelineDraft<CharacterItem[]>(projectId, 3);
+    if (draft && draft.length > 0) {
+      setItems(draft);
+      return;
+    }
+    if (existing.length > 0) {
       setItems(
         existing.map((e) => ({
           id: e.id,
@@ -64,7 +79,14 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
         }))
       );
     }
-  }, [existing, items.length]);
+  }, [projectId, existing]);
+
+  // 草稿防抖持久化：确认保存成功后由 onSave 清除
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    const timer = setTimeout(() => writePipelineDraft(projectId, 3, items), 500);
+    return () => clearTimeout(timer);
+  }, [projectId, items]);
 
   function tryParse(raw: string): CharacterItem[] | null {
     let arr: unknown = null;
@@ -191,6 +213,8 @@ export function Step3Character({ projectId, genre, worldSummary, existing }: Pro
       });
     }
     setItems([...items]);
+    // 已确认落库，草稿完成使命
+    clearPipelineDraft(projectId, 3);
     toast({ title: "角色卡已保存", type: "success" });
     window.dispatchEvent(
       new CustomEvent("pipeline-step-next", { detail: { characters: saved } })

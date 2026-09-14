@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +10,11 @@ import { useAIStream } from "@/hooks/use-ai-stream";
 import { saveWorldSettingAction } from "@/actions/knowledge";
 import { toast } from "@/components/ui/toast";
 import { getWorldbuildSlots, getSystemSlotLabel } from "@/lib/genre";
+import {
+  clearPipelineDraft,
+  readPipelineDraft,
+  writePipelineDraft,
+} from "@/lib/pipeline-draft";
 
 interface WorldItem {
   id?: string; // 已保存记录的 id：再次保存走 update，避免重复创建
@@ -27,6 +32,7 @@ interface Props {
 
 export function Step2Worldbuild({ projectId, genre, inspiration, existing }: Props) {
   const [items, setItems] = useState<WorldItem[]>([]);
+  const initializedRef = useRef(false);
   const { generate, isStreaming, text, error, stop } = useAIStream();
 
   // 题材自适应：世界观框架槽位与下拉标签随题材/灵感内容切换
@@ -43,9 +49,17 @@ export function Step2Worldbuild({ projectId, genre, inspiration, existing }: Pro
     [genre, inspiration]
   );
 
-  // 把已有内容映射成 items
+  // 初始化（仅一次）：优先恢复未确认的本地草稿（刷新前正在编辑的内容），
+  // 否则回填知识库已有设定，避免后续渲染覆盖用户编辑
   useEffect(() => {
-    if (existing.length > 0 && items.length === 0) {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    const draft = readPipelineDraft<WorldItem[]>(projectId, 2);
+    if (draft && draft.length > 0) {
+      setItems(draft);
+      return;
+    }
+    if (existing.length > 0) {
       setItems(
         existing.map((e) => ({
           id: e.id,
@@ -58,7 +72,14 @@ export function Step2Worldbuild({ projectId, genre, inspiration, existing }: Pro
         }))
       );
     }
-  }, [existing, items.length]);
+  }, [projectId, existing]);
+
+  // 草稿防抖持久化：确认保存成功后由 onSave 清除
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    const timer = setTimeout(() => writePipelineDraft(projectId, 2, items), 500);
+    return () => clearTimeout(timer);
+  }, [projectId, items]);
 
   function tryParse(raw: string): Record<string, string> | null {
     try {
@@ -135,6 +156,8 @@ export function Step2Worldbuild({ projectId, genre, inspiration, existing }: Pro
       saved.push({ id: res.id || "", category: it.category, title: it.title, content: { text: it.content } });
     }
     setItems([...items]);
+    // 已确认落库，草稿完成使命
+    clearPipelineDraft(projectId, 2);
     toast({ title: "世界观已保存到知识库", type: "success" });
     window.dispatchEvent(
       new CustomEvent("pipeline-step-next", { detail: { worldSettings: saved } })

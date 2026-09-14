@@ -11,6 +11,11 @@ import { Sparkles, Loader2, Save, Trash2 } from "lucide-react";
 import { useAIStream } from "@/hooks/use-ai-stream";
 import { saveOutlineAction, createChaptersFromOutlinesAction } from "@/actions/knowledge";
 import { toast } from "@/components/ui/toast";
+import {
+  clearPipelineDraft,
+  readPipelineDraft,
+  writePipelineDraft,
+} from "@/lib/pipeline-draft";
 
 interface OutlineItem {
   volume: number;
@@ -48,6 +53,7 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
   const [items, setItems] = useState<OutlineItem[]>([]);
   const [template, setTemplate] = useState("三幕式");
   const modeRef = useRef<"generate" | "append">("generate");
+  const initializedRef = useRef(false);
   const { generate, isStreaming, thinking, text, error, stop } = useAIStream({
     onDone: (fullText) => {
       if (modeRef.current !== "append") return;
@@ -69,8 +75,17 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
     },
   });
 
+  // 初始化（仅一次）：优先恢复未确认的本地草稿（刷新前正在编辑的内容），
+  // 否则回填知识库已有大纲，避免后续渲染覆盖用户编辑
   useEffect(() => {
-    if (existing.length > 0 && items.length === 0) {
+    if (initializedRef.current) return;
+    initializedRef.current = true;
+    const draft = readPipelineDraft<OutlineItem[]>(projectId, 4);
+    if (draft && draft.length > 0) {
+      setItems(draft);
+      return;
+    }
+    if (existing.length > 0) {
       setItems(
         existing.map((o) => ({
           volume: o.volume,
@@ -83,7 +98,14 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
         }))
       );
     }
-  }, [existing, items.length]);
+  }, [projectId, existing]);
+
+  // 草稿防抖持久化：确认保存成功后由 onSave 清除
+  useEffect(() => {
+    if (!initializedRef.current) return;
+    const timer = setTimeout(() => writePipelineDraft(projectId, 4, items), 500);
+    return () => clearTimeout(timer);
+  }, [projectId, items]);
 
   /**
    * 修复模型常见 JSON 错误：把 "foreshadowing":"..."（或其他字段）误写成
@@ -260,6 +282,8 @@ export function Step4Outline({ projectId, genre, worldSummary, characterSummary,
     }
     // 顺手创建空章节
     await createChaptersFromOutlinesAction(projectId);
+    // 已确认落库，草稿完成使命
+    clearPipelineDraft(projectId, 4);
     toast({ title: "大纲已保存，并创建空章节", type: "success" });
     window.dispatchEvent(new CustomEvent("pipeline-step-next"));
   }
