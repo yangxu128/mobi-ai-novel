@@ -32,6 +32,7 @@ const DialogContent = React.forwardRef<
     <DialogOverlay />
     <DialogPrimitive.Content
       ref={ref}
+      onOpenAutoFocus={focusFirstTextField}
       className={cn(
         "ds-dialog fixed left-[50%] top-[50%] z-50 grid w-full max-w-lg translate-x-[-50%] translate-y-[-50%] data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
         className
@@ -47,6 +48,23 @@ const DialogContent = React.forwardRef<
   </DialogPortal>
 ));
 DialogContent.displayName = DialogPrimitive.Content.displayName;
+
+/**
+ * 弹窗打开时优先聚焦第一个文本输入框（Radix 默认聚焦第一个可聚焦元素，
+ * 表单弹窗里常是模式卡/下拉/图标按钮，用户还得再点一次才能输入）。
+ * 无输入框的弹窗走默认行为；调用方自定义 onOpenAutoFocus 时以调用方为准
+ * （props 展开在本属性之后，可直接覆盖）。
+ */
+function focusFirstTextField(event: Event) {
+  const content = event.currentTarget as HTMLElement;
+  const field = content.querySelector<HTMLElement>(
+    "input:not([type='hidden']):not([type='checkbox']):not([type='radio']):not([type='file']):not([type='button']):not([type='submit']):not([type='reset']), textarea"
+  );
+  if (field) {
+    event.preventDefault();
+    field.focus();
+  }
+}
 
 const DialogHeader = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
   <div className={cn("ds-dialog__head flex flex-col", className)} {...props} />

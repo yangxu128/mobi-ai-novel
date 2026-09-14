@@ -186,6 +186,10 @@
     .ds-dialog__close:hover { background: var(--bg-overlay-l2); color: var(--icon-default); }
     .ds-dialog__body { padding: var(--spacer-16) var(--spacer-20); color: var(--text-secondary); font-size: var(--body-base-font-size); line-height: var(--body-base-line-height); }
     .ds-dialog__foot { padding: var(--spacer-12) var(--spacer-20); display: flex; justify-content: flex-end; gap: var(--spacer-8); border-top: 0; }
+    /* 弹窗默认禁止划选：避免点击/拖拽误选标题、说明与按钮文字；
+       输入类控件保持可选中（编辑/复制输入内容不受影响） */
+    .ds-dialog { user-select: none; }
+    .ds-dialog input, .ds-dialog textarea { user-select: text; }
     .ds-drawer { background: var(--bg-base-default); border: 1px solid var(--border-neutral-l1); border-radius: var(--radius-12); width: 100%; max-width: 360px; display: flex; flex-direction: column; box-shadow: 0 24px 64px color-mix(in srgb, var(--text-default) 14%, transparent), 0 4px 16px color-mix(in srgb, var(--text-default) 8%, transparent); }
     .ds-drawer__head { padding: var(--spacer-16) var(--spacer-20); display: flex; justify-content: space-between; align-items: center; border-bottom: 0; }
     .ds-drawer__body { padding: var(--spacer-16) var(--spacer-20); flex: 1; }
