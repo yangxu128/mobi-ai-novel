@@ -6,7 +6,7 @@ import { QrCode } from "lucide-react";
 /**
  * 联系我们二维码卡片。
  * 图片放在 public/assets/ 下，文件名固定：
- *   qr-wechat-group.png（微信群） / qr-feishu.png（飞书群）
+ *   qr-douyin.png（抖音群） / qr-feishu.png（飞书群）
  * 图片未上传时自动显示占位框，不会出现破图。
  */
 function QrCard({ src, title, hint }: { src: string; title: string; hint: string }) {
@@ -60,8 +60,8 @@ export function ContactQr() {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       <QrCard
-        src="/assets/qr-wechat-group.png"
-        title="微信创作者群"
+        src="/assets/qr-douyin.png"
+        title="抖音交流群"
         hint="扫码加入，和作者们一起聊"
       />
       <QrCard
