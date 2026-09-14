@@ -22,10 +22,13 @@ const ROLE_LABEL: Record<string, string> = {
 };
 
 export default async function AdminDashboardPage() {
-  const sevenDaysAgo = beijingDayStart(new Date(Date.now() - 6 * 86400000));
-  sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 6);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
+  // 近 7 天窗口：北京时间「今天 - 6 天」的零点起，含今天共 7 天。
+  // 注意不能再用 setDate/setHours 在服务器本地时区上二次偏移，
+  // 那会让图表日期永远落后若干天（柱状图“日期不更新”的根因）。
   const todayStart = beijingDayStart();
+  const sevenDaysAgo = beijingDayStart(
+    new Date(todayStart.getTime() - 6 * 86400000)
+  );
 
   const [
     userCount,
