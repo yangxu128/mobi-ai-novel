@@ -19,6 +19,8 @@ import { deductCredits, TOKENS_PER_CREDIT } from "@/lib/ai/credits";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// EdgeOne 云函数默认 30s 就掐断，长文生成需显式声明上限（配合前端断点续传）
+export const maxDuration = 120;
 
 /** 上限：防滥用（消息数 / 总字符） */
 const MAX_MESSAGES = 80;

@@ -7,6 +7,10 @@
  * 断点续传：流被平台超时（EdgeOne 云函数 120s 上限）或网络中断切断时，
  * 连接断开但收不到 done/error 事件。此时自动携带已生成内容
  * （payload.__continuation）发起续传请求，模型从中断处继续输出。
+ *
+ * 空闲看门狗：平台掐断云函数后连接可能既不报错也不关闭（reader.read()
+ * 永不返回），仅靠 fetch 异常无法触发续传。客户端主动检测数据空闲，
+ * 超时 abort 本轮，视作静默中断进入续传。
  */
 
 import { useCallback, useRef, useState } from "react";
@@ -21,6 +25,11 @@ interface UseAIStreamOptions {
 
 /** 一次初始请求 + 2 次断点续传 */
 const MAX_ROUNDS = 3;
+
+/** 看门狗：首字节超时（覆盖 EdgeOne 云函数 120s 上限 + 余量） */
+const FIRST_BYTE_TIMEOUT_MS = 130_000;
+/** 看门狗：流空闲超时（覆盖服务端 60s 挂起检测 + 服务端重试首包等待） */
+const IDLE_TIMEOUT_MS = 100_000;
 
 /**
  * 积分余额变化事件：生成完成（服务端已扣积分）后派发，
@@ -44,8 +53,9 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
       fullTextRef.current = "";
       setIsStreaming(true);
 
-      const abort = new AbortController();
-      abortRef.current = abort;
+      // 用户取消控制器（stop() 触发）；每轮请求另建独立控制器并联动它
+      const userAbort = new AbortController();
+      abortRef.current = userAbort;
 
       let lastErrMsg = "";
       let round = 0;
@@ -57,129 +67,161 @@ export function useAIStream(opts: UseAIStreamOptions = {}) {
           let receivedDone = false;
           let gotError = false;
 
-          let resp: Response;
-          try {
-            resp = await fetch("/api/ai/generate", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                action: payload.action,
-                projectId: payload.projectId,
-                payload: isContinuation
-                  ? { ...payload.payload, __continuation: fullTextRef.current }
-                  : payload.payload,
-                // 深度思考开关（页面控制，默认关）
-                thinking: isThinkingEnabled(),
-              }),
-              signal: abort.signal,
-            });
-          } catch (e) {
-            // 请求阶段网络异常：无内容时完整重试，有内容时续传
-            if ((e as Error).name === "AbortError") throw e;
-            lastErrMsg = (e as Error).message || "网络异常";
-            continue;
-          }
+          // 轮间隙里用户点了停止（abort 事件不会对后注册的监听补发）
+          if (userAbort.signal.aborted) throw new DOMException("Aborted", "AbortError");
 
-          if (resp.status === 401) {
-            setError("未登录");
-            opts.onError?.("未登录");
-            return;
-          }
-          if (resp.status === 429) {
-            const data = await resp.json().catch(() => ({}));
-            // 区分「配额用尽」与「请求过于频繁」：服务端配额 429 返回
-            // error === "QUOTA_EXCEEDED"，频次限流 429 返回具体文案
-            const msg =
-              data.error === "QUOTA_EXCEEDED"
-                ? `积分余额不足（剩余 ${data.available ?? 0} 积分），可每日签到领取积分，或升级套餐`
-                : typeof data.error === "string"
-                  ? data.error
-                  : "请求过于频繁，请稍后再试";
-            setError(msg);
-            opts.onError?.(msg);
-            return;
-          }
-          if (!resp.ok || !resp.body) {
-            const data = await resp.json().catch(() => ({}));
-            // data.error 可能是字符串或对象
-            let msg = `请求失败 (${resp.status})`;
-            if (typeof data.error === "string") {
-              msg = data.error;
-            } else if (data.error?.message) {
-              msg = data.error.message;
-            } else if (data.message) {
-              msg = data.message;
-            }
-            // 内容审查友好提示
-            if (data.error?.code === "data_inspection_failed" || msg.includes("inappropriate content")) {
-              msg = "输入或输出内容涉嫌敏感，已被内容安全审查拦截，请修改后重试";
-            }
-            setError(msg);
-            opts.onError?.(msg);
-            return;
-          }
+          const roundAbort = new AbortController();
+          const onUserAbort = () => roundAbort.abort();
+          userAbort.signal.addEventListener("abort", onUserAbort);
 
-          const reader = resp.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = "";
+          // 空闲看门狗：超时未收到数据则 abort 本轮（视作静默中断走续传）
+          let gotFirstByte = false;
+          let watchdog: ReturnType<typeof setTimeout> | null = null;
+          const armWatchdog = () => {
+            if (watchdog) clearTimeout(watchdog);
+            watchdog = setTimeout(
+              () => roundAbort.abort(),
+              gotFirstByte ? IDLE_TIMEOUT_MS : FIRST_BYTE_TIMEOUT_MS
+            );
+          };
+          const disarmWatchdog = () => {
+            if (watchdog) clearTimeout(watchdog);
+            watchdog = null;
+          };
 
           try {
-            while (true) {
-              const { done, value } = await reader.read();
-              if (done) break;
-              buffer += decoder.decode(value, { stream: true });
+            armWatchdog();
+            let resp: Response;
+            try {
+              resp = await fetch("/api/ai/generate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  action: payload.action,
+                  projectId: payload.projectId,
+                  payload: isContinuation
+                    ? { ...payload.payload, __continuation: fullTextRef.current }
+                    : payload.payload,
+                  // 深度思考开关（页面控制，默认关）
+                  thinking: isThinkingEnabled(),
+                }),
+                signal: roundAbort.signal,
+              });
+            } catch (e) {
+              // 请求阶段网络异常 / 看门狗超时：无内容时完整重试，有内容时续传
+              if (userAbort.signal.aborted) throw e;
+              lastErrMsg = (e as Error).message || "网络异常";
+              continue;
+            }
 
-              // 按 SSE 事件分割
-              const parts = buffer.split("\n\n");
-              buffer = parts.pop() || "";
+            if (resp.status === 401) {
+              setError("未登录");
+              opts.onError?.("未登录");
+              return;
+            }
+            if (resp.status === 429) {
+              const data = await resp.json().catch(() => ({}));
+              // 区分「配额用尽」与「请求过于频繁」：服务端配额 429 返回
+              // error === "QUOTA_EXCEEDED"，频次限流 429 返回具体文案
+              const msg =
+                data.error === "QUOTA_EXCEEDED"
+                  ? `积分余额不足（剩余 ${data.available ?? 0} 积分），可每日签到领取积分，或升级套餐`
+                  : typeof data.error === "string"
+                    ? data.error
+                    : "请求过于频繁，请稍后再试";
+              setError(msg);
+              opts.onError?.(msg);
+              return;
+            }
+            if (!resp.ok || !resp.body) {
+              const data = await resp.json().catch(() => ({}));
+              // data.error 可能是字符串或对象
+              let msg = `请求失败 (${resp.status})`;
+              if (typeof data.error === "string") {
+                msg = data.error;
+              } else if (data.error?.message) {
+                msg = data.error.message;
+              } else if (data.message) {
+                msg = data.message;
+              }
+              // 内容审查友好提示
+              if (data.error?.code === "data_inspection_failed" || msg.includes("inappropriate content")) {
+                msg = "输入或输出内容涉嫌敏感，已被内容安全审查拦截，请修改后重试";
+              }
+              setError(msg);
+              opts.onError?.(msg);
+              return;
+            }
 
-              for (const part of parts) {
-                const lines = part.split("\n");
-                let event = "message";
-                let dataStr = "";
-                for (const line of lines) {
-                  if (line.startsWith("event: ")) event = line.slice(7);
-                  else if (line.startsWith("data: ")) dataStr += line.slice(6);
-                }
-                if (!dataStr) continue;
-                try {
-                  const data = JSON.parse(dataStr);
-                  if (event === "delta" && data.text) {
-                    fullTextRef.current += data.text;
-                    setText(fullTextRef.current);
-                  } else if (event === "reasoning" && data.text) {
-                    // 推理模型思考内容：仅累计字数用于"思考中"反馈
-                    setThinking((n) => n + data.text.length);
-                  } else if (event === "reset") {
-                    // 流中断自动重试：清空上一轮已渲染内容，避免重跑后文本重复
-                    fullTextRef.current = "";
-                    setText("");
-                    setThinking(0);
-                  } else if (event === "error") {
-                    // 服务端已重试 3 轮失败：终止，不再续传
-                    gotError = true;
-                    setError(data.message || "生成失败");
-                    opts.onError?.(data.message || "生成失败");
-                  } else if (event === "done") {
-                    receivedDone = true;
-                    opts.onDone?.(fullTextRef.current);
-                    // 服务端在 done 后扣积分：通知余额展示组件刷新
-                    window.dispatchEvent(new Event(QUOTA_CHANGED_EVENT));
+            const reader = resp.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+
+            try {
+              while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                gotFirstByte = true;
+                armWatchdog();
+                buffer += decoder.decode(value, { stream: true });
+
+                // 按 SSE 事件分割
+                const parts = buffer.split("\n\n");
+                buffer = parts.pop() || "";
+
+                for (const part of parts) {
+                  const lines = part.split("\n");
+                  let event = "message";
+                  let dataStr = "";
+                  for (const line of lines) {
+                    if (line.startsWith("event: ")) event = line.slice(7);
+                    else if (line.startsWith("data: ")) dataStr += line.slice(6);
                   }
-                } catch {
-                  // ignore
+                  if (!dataStr) continue;
+                  try {
+                    const data = JSON.parse(dataStr);
+                    if (event === "delta" && data.text) {
+                      fullTextRef.current += data.text;
+                      setText(fullTextRef.current);
+                    } else if (event === "reasoning" && data.text) {
+                      // 推理模型思考内容：仅累计字数用于"思考中"反馈
+                      setThinking((n) => n + data.text.length);
+                    } else if (event === "reset") {
+                      // 流中断自动重试：清空上一轮已渲染内容，避免重跑后文本重复
+                      fullTextRef.current = "";
+                      setText("");
+                      setThinking(0);
+                    } else if (event === "error") {
+                      // 服务端已重试 3 轮失败：终止，不再续传
+                      gotError = true;
+                      setError(data.message || "生成失败");
+                      opts.onError?.(data.message || "生成失败");
+                    } else if (event === "done") {
+                      receivedDone = true;
+                      opts.onDone?.(fullTextRef.current);
+                      // 服务端在 done 后扣积分：通知余额展示组件刷新
+                      window.dispatchEvent(new Event(QUOTA_CHANGED_EVENT));
+                    }
+                  } catch {
+                    // ignore
+                  }
                 }
               }
+            } catch (e) {
+              // 读取阶段网络中断 / 看门狗超时：无内容时完整重试，有内容时续传
+              if (userAbort.signal.aborted) throw e;
+              lastErrMsg = (e as Error).message || "连接中断";
+            } finally {
+              disarmWatchdog();
             }
-          } catch (e) {
-            // 读取阶段网络中断：无内容时完整重试，有内容时续传
-            if ((e as Error).name === "AbortError") throw e;
-            lastErrMsg = (e as Error).message || "连接中断";
-          }
 
-          // 成功完成（或服务端已终态报错）
-          if (receivedDone || gotError) return;
-          // 流静默中断（连接断开且无 done/error 事件）→ 下一轮断点续传
+            // 成功完成（或服务端已终态报错）
+            if (receivedDone || gotError) return;
+            // 流静默中断（连接断开无 done/error，或看门狗超时）→ 下一轮断点续传
+          } finally {
+            disarmWatchdog();
+            userAbort.signal.removeEventListener("abort", onUserAbort);
+          }
         }
 
         // 续传轮次用尽仍中断：有部分内容则保留并提示，无内容则报错

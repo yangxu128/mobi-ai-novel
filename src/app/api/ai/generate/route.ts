@@ -36,6 +36,8 @@ import { rateLimit } from "@/lib/ai/rate-limit";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+// EdgeOne 云函数默认 30s 就掐断，长文生成需显式声明上限（配合前端断点续传）
+export const maxDuration = 120;
 
 /**
  * Action 处理器策略表。
